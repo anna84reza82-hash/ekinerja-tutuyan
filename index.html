@@ -8,13 +8,21 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- FontAwesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    
+    <!-- FIREBASE SDK (COMPAT VERSION FOR EASY CDN INTEGRATION) -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+
+    <!-- PWA LINK MANIFEST -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#4f46e5">
+
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
         body { 
             font-family: 'Plus Jakarta Sans', sans-serif; 
             -webkit-tap-highlight-color: transparent;
         }
-        /* Custom scrollbar hides */
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
         .safe-bottom { padding-bottom: calc(env(safe-area-inset-bottom) + 5rem); }
@@ -24,7 +32,6 @@
 
     <!-- MAIN LOGIN SCREEN -->
     <div id="loginPage" class="fixed inset-0 z-50 flex flex-col justify-between bg-slate-900 p-6 overflow-y-auto">
-        <!-- Top branding background circle decoration -->
         <div class="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl -mr-20 -mt-20"></div>
         
         <div class="my-auto max-w-sm w-full mx-auto space-y-8 relative z-10">
@@ -34,6 +41,12 @@
                 </div>
                 <h1 class="text-2xl font-extrabold text-white tracking-tight">e-Kinerja Tutuyan</h1>
                 <p class="text-indigo-200/60 text-xs mt-1">Kabupaten Bolaang Mongondow Timur</p>
+                
+                <!-- ONLINE STATUS BADGE -->
+                <div class="mt-3 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-800/80 border border-slate-700">
+                    <span id="dbStatusDot" class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
+                    <span id="dbStatusText" class="text-[9px] font-bold text-slate-300 uppercase tracking-wider">Menghubungkan...</span>
+                </div>
             </div>
 
             <!-- Login Card -->
@@ -80,7 +93,7 @@
         </header>
 
         <!-- CAMAT VIEW (Evaluator) -->
-        <main id="camatView" class="p-4 space-y-4 flex-1 hidden safe-bottom">
+        <main id="camatView" class="p-4 space-y-4 flex-1 hidden pb-12">
             <!-- Summary Month Selector & Stats -->
             <div class="bg-indigo-600 rounded-3xl p-5 text-white shadow-xl shadow-indigo-100 relative overflow-hidden">
                 <div class="relative z-10 flex justify-between items-center">
@@ -109,7 +122,7 @@
         </main>
 
         <!-- KASUBAG VIEW (Monitor) -->
-        <main id="kasubagView" class="p-4 space-y-4 flex-1 hidden safe-bottom">
+        <main id="kasubagView" class="p-4 space-y-4 flex-1 hidden pb-12">
             <div class="flex items-center justify-between mb-2">
                 <h3 class="font-black text-slate-800 text-md">Rekapitulasi Nilai Bulanan</h3>
                 <select id="kasubagFilterMonth" onchange="renderKasubagView()" class="bg-white text-xs font-bold text-slate-700 rounded-xl py-2 px-3 border border-slate-200 shadow-sm outline-none">
@@ -126,7 +139,7 @@
         </main>
 
         <!-- ADMIN VIEW (System Manager) -->
-        <main id="adminView" class="p-4 space-y-4 flex-1 hidden safe-bottom">
+        <main id="adminView" class="p-4 space-y-4 flex-1 hidden pb-12">
             <!-- Admin Controls Header -->
             <div class="flex justify-between items-center gap-2">
                 <button onclick="openEmployeeModal()" class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3.5 rounded-2xl shadow-md text-xs flex items-center justify-center gap-2">
@@ -196,8 +209,8 @@
             </div>
         </main>
 
-        <!-- BOTTOM MOBILE NAVIGATION BAR -->
-        <nav id="bottomNav" class="fixed bottom-0 inset-x-0 bg-white/95 backdrop-blur-md border-t border-slate-200/80 z-40 shadow-2xl flex justify-around safe-bottom">
+        <!-- BOTTOM MOBILE NAVIGATION BAR (Tersembunyi selama sesi aktif non-admin) -->
+        <nav id="bottomNav" class="fixed bottom-0 inset-x-0 bg-white/95 backdrop-blur-md border-t border-slate-200/80 z-40 shadow-2xl flex justify-around hidden">
             <button onclick="switchRoleView('camat')" id="nav-camat" class="flex-1 flex flex-col items-center justify-center py-3 text-slate-400 active:scale-95 transition-all">
                 <i class="fa-solid fa-clipboard-user text-lg"></i>
                 <span class="text-[9px] font-bold mt-1">Camat</span>
@@ -306,7 +319,23 @@
 
     <!-- JAVASCRIPT LOGIC -->
     <script>
-        // Database Awal Pegawai (Gambar 3 Lengkap)
+        // =========================================================================
+        // 🚀 PENGATURAN DATABASE REAL-TIME ONLINE (GOOGLE FIREBASE)
+        // =========================================================================
+        // Masukkan kunci konfigurasi Firebase Anda di sini agar HP Camat & Kasubag
+        // bisa tersinkronisasi jarak jauh secara otomatis saat itu juga!
+        // Jika dibiarkan kosong, aplikasi otomatis menggunakan memori internal (LocalStorage).
+        const firebaseConfig = {
+            apiKey: "",
+            authDomain: "",
+            databaseURL: "",
+            projectId: "",
+            storageBucket: "",
+            messagingSenderId: "",
+            appId: ""
+        };
+
+        // Database Awal Pegawai (Lengkap sesuai Gambar 3)
         const initialEmployees = [
             { id: 1, name: "HESTY PAPUTUNGAN, Amd.Keb", nip: "19770628 200701 2016", gol: "III/c", jabatan: "Camat", type: "struktural" },
             { id: 2, name: "HOLY REZA PAHLEVI ANI, S.Si", nip: "19820302 201001 1015", gol: "IV/a", jabatan: "Sekretaris Camat", type: "struktural" },
@@ -322,48 +351,129 @@
             { id: 12, name: "MUKSIN GOBEL", nip: "19710727 201001 1003", gol: "II/a", jabatan: "PENGADMINISTRASI PERKANTORAN", type: "staf" }
         ];
 
-        // Memuat database utama dari browser
-        let employees = JSON.parse(localStorage.getItem('tutuyan_pwa_employees')) || [];
+        // Status Koneksi Database
+        let db = null;
+        let isFirebaseActive = false;
         
-        // LOGIKA DETEKSI DAN SINKRONISASI OTOMATIS PEGAWAI YANG HILANG
-        if (employees.length === 0) {
-            employees = [...initialEmployees];
-        } else {
-            // Periksa jika ada pegawai dari initialEmployees yang belum masuk ke penyimpanan lokal
-            initialEmployees.forEach(initEmp => {
-                const isExist = employees.some(e => e.nip.trim() === initEmp.nip.trim());
-                if (!isExist) {
-                    employees.push(initEmp); // Ambil dan masukkan yang terlewat
-                }
-            });
+        if (firebaseConfig.apiKey && firebaseConfig.apiKey.trim() !== "") {
+            try {
+                firebase.initializeApp(firebaseConfig);
+                db = firebase.database();
+                isFirebaseActive = true;
+            } catch (err) {
+                console.error("Gagal inisialisasi Firebase:", err);
+            }
         }
-        localStorage.setItem('tutuyan_pwa_employees', JSON.stringify(employees));
 
-        let assessments = JSON.parse(localStorage.getItem('tutuyan_pwa_assessments')) || [];
-        let config = JSON.parse(localStorage.getItem('tutuyan_pwa_config')) || {
+        // State Global Aplikasi
+        let employees = [];
+        let assessments = [];
+        let config = {
             pins: { camat: "123456", kasubag: "123456", admin: "123456" }
         };
 
         let currentActiveRole = 'camat';
-        let loggedInRole = ''; // Pengunci Hak Akses Sesuai Akun Login
+        let loggedInRole = '';
         let currentAdminSubTab = 'pegawai';
 
-        // Penanganan Login
+        // Inisialisasi Aliran Data
+        function initDataStream() {
+            const statusDot = document.getElementById('dbStatusDot');
+            const statusText = document.getElementById('dbStatusText');
+
+            if (isFirebaseActive) {
+                statusDot.className = "w-2 h-2 rounded-full bg-emerald-500 animate-pulse";
+                statusText.textContent = "Online (Firebase DB)";
+
+                // Real-time listener untuk Pegawai
+                db.ref('employees').on('value', (snapshot) => {
+                    const val = snapshot.val();
+                    if (val) {
+                        employees = Object.values(val);
+                    } else {
+                        employees = [...initialEmployees];
+                        db.ref('employees').set(employees);
+                    }
+                    localStorage.setItem('tutuyan_pwa_employees', JSON.stringify(employees));
+                    refreshActiveUI();
+                });
+
+                // Real-time listener untuk Penilaian
+                db.ref('assessments').on('value', (snapshot) => {
+                    const val = snapshot.val();
+                    assessments = val ? Object.values(val) : [];
+                    localStorage.setItem('tutuyan_pwa_assessments', JSON.stringify(assessments));
+                    refreshActiveUI();
+                });
+
+                // Real-time listener untuk Config / PIN
+                db.ref('config').on('value', (snapshot) => {
+                    const val = snapshot.val();
+                    if (val) {
+                        config = val;
+                    } else {
+                        db.ref('config').set(config);
+                    }
+                    localStorage.setItem('tutuyan_pwa_config', JSON.stringify(config));
+                    renderPinMonitor();
+                });
+
+            } else {
+                statusDot.className = "w-2 h-2 rounded-full bg-amber-500";
+                statusText.textContent = "Offline (Local Mem)";
+
+                // Load dari LocalStorage dengan auto-sync data baru
+                employees = JSON.parse(localStorage.getItem('tutuyan_pwa_employees')) || [];
+                if (employees.length === 0) {
+                    employees = [...initialEmployees];
+                } else {
+                    initialEmployees.forEach(initEmp => {
+                        const isExist = employees.some(e => e.nip.trim() === initEmp.nip.trim());
+                        if (!isExist) {
+                            employees.push(initEmp);
+                        }
+                    });
+                }
+                localStorage.setItem('tutuyan_pwa_employees', JSON.stringify(employees));
+
+                assessments = JSON.parse(localStorage.getItem('tutuyan_pwa_assessments')) || [];
+                config = JSON.parse(localStorage.getItem('tutuyan_pwa_config')) || {
+                    pins: { camat: "123456", kasubag: "123456", admin: "123456" }
+                };
+                refreshActiveUI();
+            }
+        }
+
+        function refreshActiveUI() {
+            if (loggedInRole === 'camat') renderCamatView();
+            if (loggedInRole === 'kasubag') renderKasubagView();
+            if (loggedInRole === 'admin') renderAdminView();
+        }
+
+        // Login Handler
         function handleLogin() {
             const role = document.getElementById('loginRole').value;
             const pin = document.getElementById('loginPin').value;
 
             if (config.pins[role] === pin) {
-                loggedInRole = role; // Daftarkan hak akses resmi pada sesi ini
+                loggedInRole = role;
                 document.getElementById('loginPage').classList.add('hidden');
                 document.getElementById('mainApp').classList.remove('hidden');
                 
-                // Atur sambutan atas peran aktif
-                let welcomeName = "Camat";
+                let welcomeName = "Camat (Evaluator)";
                 if (role === 'kasubag') welcomeName = "Kasubag Kepegawaian";
                 if (role === 'admin') welcomeName = "Administrator";
                 
                 document.getElementById('welcomeTitle').textContent = "Halo, " + welcomeName;
+                
+                // Pembatasan hak akses navigasi: Sembunyikan bottom bar jika bukan admin
+                const bottomNav = document.getElementById('bottomNav');
+                if (role === 'admin') {
+                    bottomNav.classList.remove('hidden');
+                } else {
+                    bottomNav.classList.add('hidden');
+                }
+
                 switchRoleView(role);
             } else {
                 alert("PIN Salah! Gunakan " + config.pins[role] + " untuk peran ini.");
@@ -371,45 +481,29 @@
         }
 
         function handleLogout() {
-            loggedInRole = ''; // Reset hak akses saat keluar
+            loggedInRole = '';
             document.getElementById('loginPage').classList.remove('hidden');
             document.getElementById('mainApp').classList.add('hidden');
             document.getElementById('loginPin').value = "";
         }
 
-        // Beralih Tab Menu Peran
         function switchRoleView(role) {
-            // BLOKADE KEAMANAN: Paksa pengguna kembali ke dashboard-nya sendiri jika mencoba bypass tab
-            if (role !== loggedInRole) {
+            // Pengunci Akses Silang
+            if (loggedInRole !== 'admin' && role !== loggedInRole) {
                 role = loggedInRole;
             }
             
             currentActiveRole = role;
             
-            // Sembunyikan semua layar
             document.getElementById('camatView').classList.add('hidden');
             document.getElementById('kasubagView').classList.add('hidden');
             document.getElementById('adminView').classList.add('hidden');
             
-            // Set warna tombol navigasi nonaktif
             document.querySelectorAll('nav button').forEach(btn => btn.className = "flex-1 flex flex-col items-center justify-center py-3 text-slate-400 active:scale-95 transition-all");
             
-            // Aktifkan layar tujuan
             document.getElementById(role + 'View').classList.remove('hidden');
             document.getElementById('nav-' + role).className = "flex-1 flex flex-col items-center justify-center py-3 text-indigo-600 active:scale-95 transition-all border-t-2 border-indigo-600 bg-indigo-50/20";
 
-            // SEMBUNYIKAN MENU SWITCHER UTAMA (Sistem Navigasi Bawah)
-            // Hal ini dikarenakan setiap peran hanya berhak mengakses 1 dashboard tunggal
-            const bottomNav = document.getElementById('bottomNav');
-            bottomNav.classList.add('hidden');
-
-            // Sesuaikan kembali ruang scroll bawah agar tampilan HP menjadi sangat bersih
-            document.querySelectorAll('main').forEach(m => {
-                m.classList.remove('safe-bottom');
-                m.classList.add('pb-12');
-            });
-
-            // Muat data spesifik
             if (role === 'camat') renderCamatView();
             if (role === 'kasubag') renderKasubagView();
             if (role === 'admin') renderAdminView();
@@ -431,7 +525,7 @@
             }
         }
 
-        // Mengisi & Menyimpan Penilaian oleh Camat
+        // Menyimpan Penilaian
         function saveSingleAssessment(empId) {
             const month = document.getElementById('evalMonth').value;
             const pred = document.getElementById(`pred_${empId}`).value;
@@ -443,11 +537,7 @@
 
             const emp = employees.find(e => e.id === empId);
             const range = getScoreRange(pred);
-
-            // Periksa apakah ini aksi 'Edit' (sudah ada data sebelumnya untuk bulan itu)
             const isEdit = assessments.some(a => a.empId === empId && a.month === month);
-
-            // Kepemimpinan dihitung HANYA untuk: Camat, Sekretaris Camat, Kepala Seksi, Kasubag
             const isStructural = emp.type === 'struktural';
 
             const newAssessment = {
@@ -464,14 +554,23 @@
                 }
             };
 
-            // Hapus data penilaian lama untuk karyawan ini di bulan yang sama jika ada
-            assessments = assessments.filter(a => !(a.empId === empId && a.month === month));
-            assessments.push(newAssessment);
-            localStorage.setItem('tutuyan_pwa_assessments', JSON.stringify(assessments));
+            const dbKey = empId + "_" + month.replace(/ /g, "_");
 
-            renderCamatView();
+            if (isFirebaseActive) {
+                db.ref('assessments/' + dbKey).set(newAssessment).then(() => {
+                    triggerNotificationWorkflow(emp, month, isEdit);
+                });
+            } else {
+                assessments = assessments.filter(a => !(a.empId === empId && a.month === month));
+                assessments.push(newAssessment);
+                localStorage.setItem('tutuyan_pwa_assessments', JSON.stringify(assessments));
+                triggerNotificationWorkflow(emp, month, isEdit);
+                renderCamatView();
+            }
+        }
 
-            // KONDISI PENGIRIMAN NOTIFIKASI WHATSAPP
+        // Pengatur Alur Notifikasi WhatsApp dalam 2 Kondisi Target
+        function triggerNotificationWorkflow(emp, month, isEdit) {
             if (isEdit) {
                 // Kondisi 2: Saat camat mengedit data penilaian yang telah disimpan
                 triggerWaNotification(`Camat telah mengedit data penilaian atas nama *${emp.name}* (Jabatan: ${emp.jabatan}) untuk periode *${month}*.`);
@@ -484,25 +583,20 @@
             }
         }
 
-        // Simulasi Notifikasi Ke Nomor WhatsApp Kasubag Kepegawaian
         function triggerWaNotification(message) {
             const toast = document.getElementById('waNotifToast');
             const txt = document.getElementById('waText');
-            
-            // Format simulasi pesan dengan link aplikasi dinamis
             const appLink = window.location.href;
+            
             txt.innerHTML = `${message}<br><span class="text-indigo-200 underline font-mono text-[10px] break-all">${appLink}</span>`;
-
-            // Tampilkan popup
             toast.classList.remove('-translate-y-32');
             
-            // Sembunyikan dalam 6 detik
             setTimeout(() => {
                 toast.classList.add('-translate-y-32');
             }, 6000);
         }
 
-        // Menampilkan UI Utama Camat (Berbasis Kartu Dinamis)
+        // Tampilan Camat
         function renderCamatView() {
             const month = document.getElementById('evalMonth').value;
             const container = document.getElementById('camatCardContainer');
@@ -517,7 +611,6 @@
 
                 if (exist) {
                     countCompleted++;
-                    // Batas waktu edit: 25 hari setelah tanggal simpan
                     const msPassed = Date.now() - exist.savedAt;
                     const daysPassed = msPassed / (1000 * 60 * 60 * 24);
                     
@@ -562,11 +655,10 @@
                 container.innerHTML += cardHtml;
             });
 
-            // Update badge info atas
             document.getElementById('camatCompletionBadge').textContent = `${countCompleted} / ${employees.length} Pegawai`;
         }
 
-        // Menampilkan Layar Kasubag Kepegawaian (Tampilan detail nilai & pembagi dinamis)
+        // Tampilan Kasubag
         function renderKasubagView() {
             const month = document.getElementById('kasubagFilterMonth').value;
             const container = document.getElementById('kasubagCardContainer');
@@ -588,7 +680,6 @@
                 const emp = employees.find(e => e.id === item.empId);
                 if (!emp) return;
 
-                // Hitung Rata-rata: Struktural dibagi 5, Staf dibagi 4 (Tanpa kepemimpinan)
                 const isStructural = emp.type === 'struktural';
                 const totalScore = item.scores.pelayanan + item.scores.integritas + item.scores.komitmen + item.scores.kerjasama + (isStructural ? item.scores.kepemimpinan : 0);
                 const divisor = isStructural ? 5 : 4;
@@ -604,7 +695,6 @@
                             <span class="text-[10px] font-black bg-indigo-100 text-indigo-600 px-3 py-1 rounded-full">${item.pred}</span>
                         </div>
 
-                        <!-- Grid 5 atau 4 Komponen Penilaian -->
                         <div class="grid grid-cols-2 gap-2 text-[10px] font-extrabold text-slate-500 pt-2 border-t border-slate-50">
                             <div class="bg-slate-50 p-2 rounded-xl">Orientasi Pelayanan: <span class="text-slate-800 text-xs block mt-0.5">${item.scores.pelayanan}</span></div>
                             <div class="bg-slate-50 p-2 rounded-xl">Integritas: <span class="text-slate-800 text-xs block mt-0.5">${item.scores.integritas}</span></div>
@@ -624,7 +714,7 @@
             });
         }
 
-        // Sub-Tab Admin (Pegawai / Nilai)
+        // Sub-Tab Admin
         function switchAdminSubTab(tab) {
             currentAdminSubTab = tab;
             const btnPegawai = document.getElementById('adminTabPegawai');
@@ -646,9 +736,8 @@
             }
         }
 
-        // Tampilan Admin utama
+        // Tampilan Admin
         function renderAdminView() {
-            // Render sub-bagian data pegawai terlebih dahulu
             const container = document.getElementById('adminPegawaiSection');
             container.innerHTML = "";
 
@@ -673,16 +762,13 @@
                 container.innerHTML += cardHtml;
             });
 
-            // Render tab nilai bila saat ini terpilih
             if (currentAdminSubTab === 'nilai') {
                 renderAdminMonitoringNilai();
             }
 
-            // Jalankan sinkronisasi tampilan PIN
             renderPinMonitor();
         }
 
-        // Tab Pantau Nilai oleh Admin (Salinan data Kasubag yang bisa diset ulang nilainya)
         function renderAdminMonitoringNilai() {
             const month = document.getElementById('adminFilterMonth').value;
             const container = document.getElementById('adminNilaiSection');
@@ -729,16 +815,20 @@
             });
         }
 
-        // Menghapus Nilai Pegawai (Fitur Admin)
         function deleteAssessment(empId, month) {
             if (confirm("Apakah Anda yakin ingin menghapus/mereset nilai untuk pegawai ini di bulan " + month + "?")) {
-                assessments = assessments.filter(a => !(a.empId === empId && a.month === month));
-                localStorage.setItem('tutuyan_pwa_assessments', JSON.stringify(assessments));
-                renderAdminView();
+                const dbKey = empId + "_" + month.replace(/ /g, "_");
+                if (isFirebaseActive) {
+                    db.ref('assessments/' + dbKey).remove();
+                } else {
+                    assessments = assessments.filter(a => !(a.empId === empId && a.month === month));
+                    localStorage.setItem('tutuyan_pwa_assessments', JSON.stringify(assessments));
+                    renderAdminView();
+                }
             }
         }
 
-        // CRUD: Modal Pegawai
+        // CRUD Pegawai
         function openEmployeeModal() {
             document.getElementById('editEmpId').value = "";
             document.getElementById('empName').value = "";
@@ -782,31 +872,47 @@
                 return;
             }
 
-            if (id) {
-                // Edit pegawai lama
-                employees = employees.map(e => e.id === parseInt(id) ? { id: parseInt(id), name, nip, gol, jabatan, type } : e);
+            const finalId = id ? parseInt(id) : Date.now();
+            const payload = { id: finalId, name, nip, gol, jabatan, type };
+
+            if (isFirebaseActive) {
+                db.ref('employees/' + finalId).set(payload).then(() => {
+                    closeEmployeeModal();
+                });
             } else {
-                // Tambah baru
-                const newId = Date.now();
-                employees.push({ id: newId, name, nip, gol, jabatan, type });
-            }
-
-            localStorage.setItem('tutuyan_pwa_employees', JSON.stringify(employees));
-            closeEmployeeModal();
-            renderAdminView();
-        }
-
-        function deleteEmployee(id) {
-            if (confirm("Apakah Anda yakin ingin menghapus pegawai ini dari database?")) {
-                employees = employees.filter(e => e.id !== id);
-                assessments = assessments.filter(a => a.empId !== id); // Bersihkan nilai kinerjanya juga
+                if (id) {
+                    employees = employees.map(e => e.id === parseInt(id) ? payload : e);
+                } else {
+                    employees.push(payload);
+                }
                 localStorage.setItem('tutuyan_pwa_employees', JSON.stringify(employees));
-                localStorage.setItem('tutuyan_pwa_assessments', JSON.stringify(assessments));
+                closeEmployeeModal();
                 renderAdminView();
             }
         }
 
-        // MODAL: Ganti PIN
+        function deleteEmployee(id) {
+            if (confirm("Apakah Anda yakin ingin menghapus pegawai ini dari database?")) {
+                if (isFirebaseActive) {
+                    db.ref('employees/' + id).remove();
+                    // Bersihkan rekap nilai terkait
+                    assessments.forEach(a => {
+                        if (a.empId === id) {
+                            const dbKey = a.empId + "_" + a.month.replace(/ /g, "_");
+                            db.ref('assessments/' + dbKey).remove();
+                        }
+                    });
+                } else {
+                    employees = employees.filter(e => e.id !== id);
+                    assessments = assessments.filter(a => a.empId !== id);
+                    localStorage.setItem('tutuyan_pwa_employees', JSON.stringify(employees));
+                    localStorage.setItem('tutuyan_pwa_assessments', JSON.stringify(assessments));
+                    renderAdminView();
+                }
+            }
+        }
+
+        // Modal PIN
         function openChangePinModal() {
             const wrapper = document.getElementById('adminPinTargetWrapper');
             if (currentActiveRole === 'admin') {
@@ -835,16 +941,21 @@
             }
 
             config.pins[targetRole] = newPin;
-            localStorage.setItem('tutuyan_pwa_config', JSON.stringify(config));
-            
-            alert(`PIN Keamanan untuk akun ${targetRole.toUpperCase()} berhasil diubah menjadi: ${newPin}`);
-            closeChangePinModal();
 
-            // Render ulang monitor PIN agar data terbaru langsung terekam
-            renderPinMonitor();
+            if (isFirebaseActive) {
+                db.ref('config').set(config).then(() => {
+                    alert(`PIN Keamanan untuk akun ${targetRole.toUpperCase()} berhasil diubah menjadi: ${newPin}`);
+                    closeChangePinModal();
+                });
+            } else {
+                localStorage.setItem('tutuyan_pwa_config', JSON.stringify(config));
+                alert(`PIN Keamanan untuk akun ${targetRole.toUpperCase()} berhasil diubah menjadi: ${newPin}`);
+                closeChangePinModal();
+                renderPinMonitor();
+            }
         }
 
-        // LOGIKA MONITORING PIN SECARA REAL-TIME OLEH ADMIN
+        // Monitoring PIN oleh Admin
         let pinVisibleStates = { camat: false, kasubag: false, admin: false };
 
         function renderPinMonitor() {
@@ -858,15 +969,11 @@
                     if (pinVisibleStates[r]) {
                         pinValElement.textContent = config.pins[r];
                         pinValElement.classList.remove('tracking-widest');
-                        if (iconElement) {
-                            iconElement.className = "fa-solid fa-eye-slash text-[10px]";
-                        }
+                        if (iconElement) iconElement.className = "fa-solid fa-eye-slash text-[10px]";
                     } else {
                         pinValElement.textContent = "••••••";
                         pinValElement.classList.add('tracking-widest');
-                        if (iconElement) {
-                            iconElement.className = "fa-solid fa-eye text-[10px]";
-                        }
+                        if (iconElement) iconElement.className = "fa-solid fa-eye text-[10px]";
                     }
                 }
             });
@@ -882,11 +989,20 @@
             return string.charAt(0).toUpperCase() + string.slice(1);
         }
 
-        // Atur Tanggal Hari Ini di Header HP
         window.onload = function () {
             const dateDisplay = document.getElementById('currentDate');
             const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
             dateDisplay.textContent = new Date().toLocaleDateString('id-ID', options);
+            
+            // Jalankan inisialisasi aliran data
+            initDataStream();
+
+            // Pendaftaran Service Worker untuk PWA
+            if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.register('sw.js')
+                    .then(reg => console.log('Service Worker terdaftar di latar belakang.', reg))
+                    .catch(err => console.error('Pendaftaran Service Worker gagal:', err));
+            }
         };
     </script>
 </body>
