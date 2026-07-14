@@ -1,0 +1,16 @@
+{
+  "name": "e-Kinerja Tutuyan Mobile",
+  "short_name": "eKinerja",
+  "start_url": "index.html",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#4f46e5",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/3208/3208358.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
