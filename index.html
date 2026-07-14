@@ -158,6 +158,42 @@
             <div id="adminNilaiSection" class="space-y-3 hidden">
                 <!-- Injected via JS -->
             </div>
+
+            <!-- Section 3: Monitoring PIN (Hanya Tampil Untuk Admin) -->
+            <div id="adminPinMonitorSection" class="bg-white p-5 rounded-3xl border border-slate-100 shadow-xs space-y-3">
+                <h4 class="font-black text-slate-800 text-xs uppercase tracking-wider flex items-center gap-1.5 text-indigo-600">
+                    <i class="fa-solid fa-key text-[10px]"></i> Keamanan & PIN Akun Aktif
+                </h4>
+                <div class="space-y-2.5">
+                    <div class="flex justify-between items-center bg-slate-50 p-3 rounded-2xl">
+                        <div>
+                            <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Camat</p>
+                            <p id="pinValCamat" class="text-sm font-extrabold text-slate-700 tracking-widest font-mono">••••••</p>
+                        </div>
+                        <button onclick="togglePinVisibility('Camat')" class="text-indigo-600 hover:text-indigo-800 text-xs px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 rounded-xl font-bold flex items-center gap-1">
+                            <i id="pinIconCamat" class="fa-solid fa-eye text-[10px]"></i> Lihat
+                        </button>
+                    </div>
+                    <div class="flex justify-between items-center bg-slate-50 p-3 rounded-2xl">
+                        <div>
+                            <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Kasubag Kepegawaian</p>
+                            <p id="pinValKasubag" class="text-sm font-extrabold text-slate-700 tracking-widest font-mono">••••••</p>
+                        </div>
+                        <button onclick="togglePinVisibility('Kasubag')" class="text-indigo-600 hover:text-indigo-800 text-xs px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 rounded-xl font-bold flex items-center gap-1">
+                            <i id="pinIconKasubag" class="fa-solid fa-eye text-[10px]"></i> Lihat
+                        </button>
+                    </div>
+                    <div class="flex justify-between items-center bg-slate-50 p-3 rounded-2xl">
+                        <div>
+                            <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Administrator</p>
+                            <p id="pinValAdmin" class="text-sm font-extrabold text-slate-700 tracking-widest font-mono">••••••</p>
+                        </div>
+                        <button onclick="togglePinVisibility('Admin')" class="text-indigo-600 hover:text-indigo-800 text-xs px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 rounded-xl font-bold flex items-center gap-1">
+                            <i id="pinIconAdmin" class="fa-solid fa-eye text-[10px]"></i> Lihat
+                        </button>
+                    </div>
+                </div>
+            </div>
         </main>
 
         <!-- BOTTOM MOBILE NAVIGATION BAR -->
@@ -641,6 +677,9 @@
             if (currentAdminSubTab === 'nilai') {
                 renderAdminMonitoringNilai();
             }
+
+            // Jalankan sinkronisasi tampilan PIN
+            renderPinMonitor();
         }
 
         // Tab Pantau Nilai oleh Admin (Salinan data Kasubag yang bisa diset ulang nilainya)
@@ -800,6 +839,47 @@
             
             alert(`PIN Keamanan untuk akun ${targetRole.toUpperCase()} berhasil diubah menjadi: ${newPin}`);
             closeChangePinModal();
+
+            // Render ulang monitor PIN agar data terbaru langsung terekam
+            renderPinMonitor();
+        }
+
+        // LOGIKA MONITORING PIN SECARA REAL-TIME OLEH ADMIN
+        let pinVisibleStates = { camat: false, kasubag: false, admin: false };
+
+        function renderPinMonitor() {
+            if (loggedInRole !== 'admin') return;
+            
+            const roles = ['camat', 'kasubag', 'admin'];
+            roles.forEach(r => {
+                const pinValElement = document.getElementById('pinVal' + capitalizeFirstLetter(r));
+                const iconElement = document.getElementById('pinIcon' + capitalizeFirstLetter(r));
+                if (pinValElement) {
+                    if (pinVisibleStates[r]) {
+                        pinValElement.textContent = config.pins[r];
+                        pinValElement.classList.remove('tracking-widest');
+                        if (iconElement) {
+                            iconElement.className = "fa-solid fa-eye-slash text-[10px]";
+                        }
+                    } else {
+                        pinValElement.textContent = "••••••";
+                        pinValElement.classList.add('tracking-widest');
+                        if (iconElement) {
+                            iconElement.className = "fa-solid fa-eye text-[10px]";
+                        }
+                    }
+                }
+            });
+        }
+
+        function togglePinVisibility(roleKey) {
+            const key = roleKey.toLowerCase();
+            pinVisibleStates[key] = !pinVisibleStates[key];
+            renderPinMonitor();
+        }
+
+        function capitalizeFirstLetter(string) {
+            return string.charAt(0).toUpperCase() + string.slice(1);
         }
 
         // Atur Tanggal Hari Ini di Header HP
