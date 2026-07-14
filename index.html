@@ -1,0 +1,779 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>e-Kinerja Tutuyan v2.0</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
+        body { 
+            font-family: 'Plus Jakarta Sans', sans-serif; 
+            -webkit-tap-highlight-color: transparent;
+        }
+        /* Custom scrollbar hides */
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        .safe-bottom { padding-bottom: calc(env(safe-area-inset-bottom) + 5rem); }
+    </style>
+</head>
+<body class="bg-slate-50 min-h-screen text-slate-800 flex flex-col justify-between">
+
+    <!-- MAIN LOGIN SCREEN -->
+    <div id="loginPage" class="fixed inset-0 z-50 flex flex-col justify-between bg-slate-900 p-6 overflow-y-auto">
+        <!-- Top branding background circle decoration -->
+        <div class="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl -mr-20 -mt-20"></div>
+        
+        <div class="my-auto max-w-sm w-full mx-auto space-y-8 relative z-10">
+            <div class="text-center">
+                <div class="w-20 h-20 bg-gradient-to-tr from-indigo-500 to-violet-600 rounded-3xl flex items-center justify-center text-white text-3xl mx-auto mb-4 shadow-xl shadow-indigo-500/20">
+                    <i class="fa-solid fa-landmark-flag"></i>
+                </div>
+                <h1 class="text-2xl font-extrabold text-white tracking-tight">e-Kinerja Tutuyan</h1>
+                <p class="text-indigo-200/60 text-xs mt-1">Kabupaten Bolaang Mongondow Timur</p>
+            </div>
+
+            <!-- Login Card -->
+            <div class="bg-white/10 backdrop-blur-md p-6 rounded-3xl border border-white/10 space-y-5">
+                <div>
+                    <label class="text-[10px] font-bold text-indigo-200 uppercase tracking-wider block mb-2">Masuk Sebagai</label>
+                    <select id="loginRole" class="w-full bg-slate-800/80 border border-slate-700 rounded-2xl px-4 py-3.5 font-semibold text-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-sm">
+                        <option value="camat">Camat (Evaluator)</option>
+                        <option value="kasubag">Kasubag Kepegawaian (Monitor)</option>
+                        <option value="admin">Administrator (System Manager)</option>
+                    </select>
+                </div>
+                
+                <div>
+                    <label class="text-[10px] font-bold text-indigo-200 uppercase tracking-wider block mb-2">PIN Keamanan</label>
+                    <input type="password" id="loginPin" placeholder="••••••" maxlength="6" class="w-full bg-slate-800/80 border border-slate-700 rounded-2xl px-4 py-3.5 text-center text-xl tracking-[0.5em] font-bold text-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all">
+                </div>
+
+                <button onclick="handleLogin()" class="w-full bg-gradient-to-r from-indigo-500 to-violet-600 hover:from-indigo-600 hover:to-violet-700 text-white font-bold py-4 rounded-2xl shadow-lg shadow-indigo-500/20 active:scale-95 transition-transform text-sm">
+                    Masuk Sekarang
+                </button>
+            </div>
+            
+            <p class="text-center text-[10px] text-slate-500 font-medium">PIN Standar Bawaan: <span class="text-indigo-400 font-bold">123456</span></p>
+        </div>
+    </div>
+
+    <!-- MAIN CONTAINER -->
+    <div id="mainApp" class="hidden flex-1 flex flex-col">
+        <!-- Header -->
+        <header class="bg-white px-5 pt-6 pb-4 sticky top-0 z-30 border-b border-slate-100 flex items-center justify-between">
+            <div>
+                <p id="currentDate" class="text-[9px] font-bold text-indigo-600 uppercase tracking-wider"></p>
+                <h2 id="welcomeTitle" class="text-lg font-extrabold text-slate-800 mt-0.5">Halo, Pengguna</h2>
+            </div>
+            <div class="flex items-center space-x-3">
+                <button onclick="openChangePinModal()" class="w-10 h-10 bg-slate-50 hover:bg-slate-100 rounded-full text-slate-500 flex items-center justify-center transition-all">
+                    <i class="fa-solid fa-key text-xs"></i>
+                </button>
+                <button onclick="handleLogout()" class="w-10 h-10 bg-red-50 hover:bg-red-100 text-red-500 rounded-full flex items-center justify-center transition-all">
+                    <i class="fa-solid fa-sign-out-alt text-sm"></i>
+                </button>
+            </div>
+        </header>
+
+        <!-- CAMAT VIEW (Evaluator) -->
+        <main id="camatView" class="p-4 space-y-4 flex-1 hidden safe-bottom">
+            <!-- Summary Month Selector & Stats -->
+            <div class="bg-indigo-600 rounded-3xl p-5 text-white shadow-xl shadow-indigo-100 relative overflow-hidden">
+                <div class="relative z-10 flex justify-between items-center">
+                    <div>
+                        <p class="opacity-75 text-[10px] font-bold uppercase tracking-wider">Bulan Penilaian</p>
+                        <select id="evalMonth" onchange="renderCamatView()" class="bg-indigo-700/60 font-bold text-sm text-white rounded-xl py-1.5 px-3 border border-indigo-400/30 outline-none mt-1">
+                            <option value="Juli 2026">Juli 2026</option>
+                            <option value="Juni 2026">Juni 2026</option>
+                            <option value="Mei 2026">Mei 2026</option>
+                        </select>
+                    </div>
+                    <div class="text-right">
+                        <p class="opacity-75 text-[10px] font-bold uppercase tracking-wider">Status Selesai</p>
+                        <span id="camatCompletionBadge" class="inline-block bg-white/20 text-white text-xs font-black px-3 py-1 rounded-full mt-1.5">
+                            0 / 0 Pegawai
+                        </span>
+                    </div>
+                </div>
+                <div class="absolute -right-4 -bottom-6 text-8xl opacity-10"><i class="fa-solid fa-clipboard-check"></i></div>
+            </div>
+
+            <!-- Mobile-Optimized Employee Card List -->
+            <div class="space-y-3" id="camatCardContainer">
+                <!-- Cards injected here dynamically -->
+            </div>
+        </main>
+
+        <!-- KASUBAG VIEW (Monitor) -->
+        <main id="kasubagView" class="p-4 space-y-4 flex-1 hidden safe-bottom">
+            <div class="flex items-center justify-between mb-2">
+                <h3 class="font-black text-slate-800 text-md">Rekapitulasi Nilai Bulanan</h3>
+                <select id="kasubagFilterMonth" onchange="renderKasubagView()" class="bg-white text-xs font-bold text-slate-700 rounded-xl py-2 px-3 border border-slate-200 shadow-sm outline-none">
+                    <option value="Juli 2026">Juli 2026</option>
+                    <option value="Juni 2026">Juni 2026</option>
+                    <option value="Mei 2026">Mei 2026</option>
+                </select>
+            </div>
+
+            <!-- List Card Rekap Kasubag -->
+            <div class="space-y-3" id="kasubagCardContainer">
+                <!-- Cards injected here dynamically -->
+            </div>
+        </main>
+
+        <!-- ADMIN VIEW (System Manager) -->
+        <main id="adminView" class="p-4 space-y-4 flex-1 hidden safe-bottom">
+            <!-- Admin Controls Header -->
+            <div class="flex justify-between items-center gap-2">
+                <button onclick="openEmployeeModal()" class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3.5 rounded-2xl shadow-md text-xs flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-plus-circle"></i> Tambah Pegawai Baru
+                </button>
+                <select id="adminFilterMonth" onchange="renderAdminView()" class="bg-white text-xs font-bold text-slate-700 rounded-2xl py-3.5 px-3 border border-slate-200 shadow-sm outline-none">
+                    <option value="Juli 2026">Juli 2026</option>
+                    <option value="Juni 2026">Juni 2026</option>
+                    <option value="Mei 2026">Mei 2026</option>
+                </select>
+            </div>
+
+            <!-- Tab Buttons inside Admin View to switch between Pegawai & Nilai -->
+            <div class="flex bg-slate-100 p-1.5 rounded-2xl">
+                <button onclick="switchAdminSubTab('pegawai')" id="adminTabPegawai" class="flex-1 text-center py-2.5 rounded-xl text-xs font-extrabold bg-white text-indigo-600 shadow-sm transition-all">
+                    Daftar Pegawai
+                </button>
+                <button onclick="switchAdminSubTab('nilai')" id="adminTabNilai" class="flex-1 text-center py-2.5 rounded-xl text-xs font-extrabold text-slate-500 transition-all">
+                    Pantau Semua Nilai
+                </button>
+            </div>
+
+            <!-- Section 1: Daftar Pegawai -->
+            <div id="adminPegawaiSection" class="space-y-3">
+                <!-- Injected via JS -->
+            </div>
+
+            <!-- Section 2: Pantau Nilai -->
+            <div id="adminNilaiSection" class="space-y-3 hidden">
+                <!-- Injected via JS -->
+            </div>
+        </main>
+
+        <!-- BOTTOM MOBILE NAVIGATION BAR -->
+        <nav class="fixed bottom-0 inset-x-0 bg-white/95 backdrop-blur-md border-t border-slate-200/80 z-40 shadow-2xl flex justify-around safe-bottom">
+            <button onclick="switchRoleView('camat')" id="nav-camat" class="flex-1 flex flex-col items-center justify-center py-3 text-slate-400 active:scale-95 transition-all">
+                <i class="fa-solid fa-clipboard-user text-lg"></i>
+                <span class="text-[9px] font-bold mt-1">Camat</span>
+            </button>
+            <button onclick="switchRoleView('kasubag')" id="nav-kasubag" class="flex-1 flex flex-col items-center justify-center py-3 text-slate-400 active:scale-95 transition-all">
+                <i class="fa-solid fa-chart-bar text-lg"></i>
+                <span class="text-[9px] font-bold mt-1">Kasubag</span>
+            </button>
+            <button onclick="switchRoleView('admin')" id="nav-admin" class="flex-1 flex flex-col items-center justify-center py-3 text-slate-400 active:scale-95 transition-all">
+                <i class="fa-solid fa-users-gear text-lg"></i>
+                <span class="text-[9px] font-bold mt-1">Admin</span>
+            </button>
+        </nav>
+    </div>
+
+    <!-- REALISTIC WHATSAPP NOTIFICATION MOCK (SMARTPHONE TOAST) -->
+    <div id="waNotifToast" class="fixed top-4 left-4 right-4 z-50 transform -translate-y-32 transition-transform duration-500 ease-out pointer-events-none">
+        <div class="bg-emerald-600 text-white p-4 rounded-2xl shadow-2xl border border-emerald-500 flex items-start space-x-3 max-w-md mx-auto">
+            <div class="bg-white/20 p-2 rounded-xl text-white">
+                <i class="fa-brands fa-whatsapp text-2xl"></i>
+            </div>
+            <div class="flex-1 min-w-0">
+                <div class="flex justify-between items-center mb-0.5">
+                    <p class="text-[10px] font-black uppercase tracking-wider text-emerald-200">WhatsApp Kasubag Kepegawaian</p>
+                    <span class="text-[8px] font-bold opacity-60">Baru Saja</span>
+                </div>
+                <p id="waText" class="text-xs font-semibold leading-relaxed break-words"></p>
+                <div class="mt-2 text-[10px] font-bold text-emerald-100 flex items-center gap-1">
+                    <i class="fa-solid fa-link text-[8px]"></i> Link web app terlampir
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: ADD / EDIT EMPLOYEE -->
+    <div id="employeeModal" class="fixed inset-0 z-50 hidden bg-black/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-4">
+        <div class="bg-white w-full max-w-sm rounded-t-3xl sm:rounded-3xl p-6 shadow-2xl space-y-4 border border-slate-100 transform transition-all translate-y-0">
+            <div class="flex justify-between items-center border-b border-slate-100 pb-3">
+                <h4 id="modalEmpTitle" class="font-extrabold text-slate-800 text-base">Tambah Pegawai Baru</h4>
+                <button onclick="closeEmployeeModal()" class="w-8 h-8 bg-slate-50 text-slate-400 hover:text-slate-600 rounded-full flex items-center justify-center">
+                    <i class="fa-solid fa-times"></i>
+                </button>
+            </div>
+            <input type="hidden" id="editEmpId">
+            <div class="space-y-3 overflow-y-auto max-h-[60vh] pr-1">
+                <div>
+                    <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Nama Lengkap</label>
+                    <input type="text" id="empName" placeholder="Contoh: HESTY PAPUTUNGAN, Amd.Keb" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm font-semibold outline-none focus:ring-2 focus:ring-indigo-500">
+                </div>
+                <div>
+                    <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">NIP Pegawai</label>
+                    <input type="text" id="empNip" placeholder="Contoh: 19770628 200701 2016" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm font-semibold outline-none focus:ring-2 focus:ring-indigo-500">
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Golongan / Ruang</label>
+                        <input type="text" id="empGol" placeholder="Contoh: III/c" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm font-semibold outline-none focus:ring-2 focus:ring-indigo-500">
+                    </div>
+                    <div>
+                        <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Tipe Jabatan</label>
+                        <select id="empType" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm font-semibold outline-none focus:ring-2 focus:ring-indigo-500">
+                            <option value="struktural">Struktural</option>
+                            <option value="staf">Staf Pelaksana</option>
+                        </select>
+                    </div>
+                </div>
+                <div>
+                    <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Jabatan Lengkap</label>
+                    <input type="text" id="empJabatan" placeholder="Contoh: Camat / PENGADMINISTRASI..." class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm font-semibold outline-none focus:ring-2 focus:ring-indigo-500">
+                </div>
+            </div>
+            <button onclick="saveEmployeeData()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 text-center rounded-2xl shadow-lg shadow-indigo-100 active:scale-95 transition-transform text-xs">
+                Simpan Pegawai
+            </button>
+        </div>
+    </div>
+
+    <!-- MODAL: CHANGE PIN -->
+    <div id="changePinModal" class="fixed inset-0 z-50 hidden bg-black/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-4">
+        <div class="bg-white w-full max-w-sm rounded-t-3xl sm:rounded-3xl p-6 shadow-2xl space-y-4 border border-slate-100">
+            <div class="flex justify-between items-center border-b border-slate-100 pb-3">
+                <h4 class="font-extrabold text-slate-800 text-base">Ganti PIN Keamanan</h4>
+                <button onclick="closeChangePinModal()" class="w-8 h-8 bg-slate-50 text-slate-400 hover:text-slate-600 rounded-full flex items-center justify-center">
+                    <i class="fa-solid fa-times"></i>
+                </button>
+            </div>
+            <div class="space-y-3">
+                <div id="adminPinTargetWrapper" class="hidden">
+                    <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Ganti PIN Milik</label>
+                    <select id="adminPinTarget" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm font-semibold outline-none focus:ring-2 focus:ring-indigo-500">
+                        <option value="camat">Camat</option>
+                        <option value="kasubag">Kasubag Kepegawaian</option>
+                        <option value="admin">Administrator</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">PIN Baru (6 Digit Angka)</label>
+                    <input type="password" id="newPin" placeholder="••••••" maxlength="6" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-center text-xl font-bold tracking-[0.5em] outline-none focus:ring-2 focus:ring-indigo-500">
+                </div>
+            </div>
+            <button onclick="saveNewPin()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 text-center rounded-2xl shadow-lg shadow-indigo-100 active:scale-95 transition-transform text-xs">
+                Simpan PIN Baru
+            </button>
+        </div>
+    </div>
+
+    <!-- JAVASCRIPT LOGIC -->
+    <script>
+        // Database Awal Pegawai (Gambar 3 Lengkap)
+        const initialEmployees = [
+            { id: 1, name: "HESTY PAPUTUNGAN, Amd.Keb", nip: "19770628 200701 2016", gol: "III/c", jabatan: "Camat", type: "struktural" },
+            { id: 2, name: "HOLY REZA PAHLEVI ANI, S.Si", nip: "19820302 201001 1015", gol: "IV/a", jabatan: "Sekretaris Camat", type: "struktural" },
+            { id: 3, name: "CHRISTIAN SYALOOM MARCO DOODOH, S.Pi", nip: "19880626 202203 1 005", gol: "III/a", jabatan: "Kepala Seksi Pemerintahan", type: "struktural" },
+            { id: 4, name: "RISANDI D MOMINTAN, S.KEP", nip: "19900213 201403 1002", gol: "III/c", jabatan: "Kepala Seksi Pembangunan dan Pemberdayaan Masyarakat", type: "struktural" },
+            { id: 5, name: "SAID MUHAMMAD HUD, SS", nip: "19821102 201201 1 001", gol: "III/d", jabatan: "Kepala Seksi Ketenteraman dan Ketertiban", type: "struktural" },
+            { id: 6, name: "HELISTA MODEONG, A.Ma.Pd", nip: "19761107 201408 2 001", gol: "II/d", jabatan: "Kepala Seksi Kesejahteraan Sosial dan Pemberdayaan Perempuan", type: "struktural" },
+            { id: 7, name: "RENA WIDYASARI MONGILONG, SE", nip: "19850829 200902 2002", gol: "III/d", jabatan: "Kepala Seksi Pelayanan Umum", type: "struktural" },
+            { id: 8, name: "DEVIANTI LASABUDA", nip: "19800424 201001 2 011", gol: "III/b", jabatan: "Kepala Sub Bagian Perencanaan, Program, Evaluasi dan Pelaporan", type: "struktural" },
+            { id: 9, name: "ALCEN MOSU, SE", nip: "19850927 200701 2004", gol: "III/d", jabatan: "Kepala Sub Bagian Keuangan, Umum dan Kepegawaian", type: "struktural" },
+            { id: 10, name: "NURIRAWATY LIMBANADI", nip: "19760216 201201 2 001", gol: "II/d", jabatan: "PENGADMINISTRASI PERKANTORAN", type: "staf" },
+            { id: 11, name: "JEFRI KRISYE ARUNDAA", nip: "19890605 201201 1 001", gol: "II/c", jabatan: "PENGADMINISTRASI PERKANTORAN", type: "staf" },
+            { id: 12, name: "MUKSIN GOBEL", nip: "19710727 201001 1003", gol: "II/a", jabatan: "PENGADMINISTRASI PERKANTORAN", type: "staf" }
+        ];
+
+        // Memuat database utama dari browser
+        let employees = JSON.parse(localStorage.getItem('tutuyan_pwa_employees')) || initialEmployees;
+        let assessments = JSON.parse(localStorage.getItem('tutuyan_pwa_assessments')) || [];
+        let config = JSON.parse(localStorage.getItem('tutuyan_pwa_config')) || {
+            pins: { camat: "123456", kasubag: "123456", admin: "123456" }
+        };
+
+        let currentActiveRole = 'camat';
+        let currentAdminSubTab = 'pegawai';
+
+        // Penanganan Login
+        function handleLogin() {
+            const role = document.getElementById('loginRole').value;
+            const pin = document.getElementById('loginPin').value;
+
+            if (config.pins[role] === pin) {
+                document.getElementById('loginPage').classList.add('hidden');
+                document.getElementById('mainApp').classList.remove('hidden');
+                
+                // Atur sambutan atas peran aktif
+                let welcomeName = "Camat";
+                if (role === 'kasubag') welcomeName = "Kasubag Kepegawaian";
+                if (role === 'admin') welcomeName = "Administrator";
+                
+                document.getElementById('welcomeTitle').textContent = "Halo, " + welcomeName;
+                switchRoleView(role);
+            } else {
+                alert("PIN Salah! Gunakan " + config.pins[role] + " untuk peran ini.");
+            }
+        }
+
+        function handleLogout() {
+            document.getElementById('loginPage').classList.remove('hidden');
+            document.getElementById('mainApp').classList.add('hidden');
+            document.getElementById('loginPin').value = "";
+        }
+
+        // Beralih Tab Menu Peran
+        function switchRoleView(role) {
+            currentActiveRole = role;
+            
+            // Sembunyikan semua layar
+            document.getElementById('camatView').classList.add('hidden');
+            document.getElementById('kasubagView').classList.add('hidden');
+            document.getElementById('adminView').classList.add('hidden');
+            
+            // Set warna tombol navigasi nonaktif
+            document.querySelectorAll('nav button').forEach(btn => btn.className = "flex-1 flex flex-col items-center justify-center py-3 text-slate-400 active:scale-95 transition-all");
+            
+            // Aktifkan layar tujuan
+            document.getElementById(role + 'View').classList.remove('hidden');
+            document.getElementById('nav-' + role).className = "flex-1 flex flex-col items-center justify-center py-3 text-indigo-600 active:scale-95 transition-all border-t-2 border-indigo-600 bg-indigo-50/20";
+
+            // Muat data spesifik
+            if (role === 'camat') renderCamatView();
+            if (role === 'kasubag') renderKasubagView();
+            if (role === 'admin') renderAdminView();
+        }
+
+        // Logika Pengacak Nilai Otomatis Sesuai Rentang Predikat (Gambar 1 & Gambar 2)
+        function getRandomScore(min, max) {
+            return Math.floor(Math.random() * (max - min + 1)) + min;
+        }
+
+        function getScoreRange(pred) {
+            switch (pred) {
+                case 'Sangat Baik': return { min: 86, max: 100 };
+                case 'Baik': return { min: 75, max: 85 };
+                case 'Cukup': return { min: 60, max: 74 };
+                case 'Kurang': return { min: 40, max: 59 };
+                case 'Buruk': return { min: 0, max: 39 };
+                default: return { min: 0, max: 0 };
+            }
+        }
+
+        // Mengisi & Menyimpan Penilaian oleh Camat
+        function saveSingleAssessment(empId) {
+            const month = document.getElementById('evalMonth').value;
+            const pred = document.getElementById(`pred_${empId}`).value;
+
+            if (!pred) {
+                alert("Harap pilih Predikat Kinerja terlebih dahulu!");
+                return;
+            }
+
+            const emp = employees.find(e => e.id === empId);
+            const range = getScoreRange(pred);
+
+            // Periksa apakah ini aksi 'Edit' (sudah ada data sebelumnya untuk bulan itu)
+            const isEdit = assessments.some(a => a.empId === empId && a.month === month);
+
+            // Kepemimpinan dihitung HANYA untuk: Camat, Sekretaris Camat, Kepala Seksi, Kasubag
+            const isStructural = emp.type === 'struktural';
+
+            const newAssessment = {
+                empId: empId,
+                month: month,
+                pred: pred,
+                savedAt: Date.now(),
+                scores: {
+                    pelayanan: getRandomScore(range.min, range.max),
+                    integritas: getRandomScore(range.min, range.max),
+                    komitmen: getRandomScore(range.min, range.max),
+                    kerjasama: getRandomScore(range.min, range.max),
+                    kepemimpinan: isStructural ? getRandomScore(range.min, range.max) : null
+                }
+            };
+
+            // Hapus data penilaian lama untuk karyawan ini di bulan yang sama jika ada
+            assessments = assessments.filter(a => !(a.empId === empId && a.month === month));
+            assessments.push(newAssessment);
+            localStorage.setItem('tutuyan_pwa_assessments', JSON.stringify(assessments));
+
+            renderCamatView();
+
+            // KONDISI PENGIRIMAN NOTIFIKASI WHATSAPP
+            if (isEdit) {
+                // Kondisi 2: Saat camat mengedit data penilaian yang telah disimpan
+                triggerWaNotification(`Camat telah mengedit data penilaian atas nama *${emp.name}* (Jabatan: ${emp.jabatan}) untuk periode *${month}*.`);
+            } else {
+                // Kondisi 1: Cek apakah SEMUA pegawai pada bulan tersebut telah dinilai
+                const countDoneThisMonth = assessments.filter(a => a.month === month).length;
+                if (countDoneThisMonth === employees.length) {
+                    triggerWaNotification(`PEMBERITAHUAN: Camat telah *menyelesaikan & menyimpan semua penilaian* untuk seluruh pegawai (${employees.length} Orang) pada periode *${month}*.`);
+                }
+            }
+        }
+
+        // Simulasi Notifikasi Ke Nomor WhatsApp Kasubag Kepegawaian
+        function triggerWaNotification(message) {
+            const toast = document.getElementById('waNotifToast');
+            const txt = document.getElementById('waText');
+            
+            // Format simulasi pesan dengan link aplikasi dinamis
+            const appLink = window.location.href;
+            txt.innerHTML = `${message}<br><span class="text-indigo-200 underline font-mono text-[10px] break-all">${appLink}</span>`;
+
+            // Tampilkan popup
+            toast.classList.remove('-translate-y-32');
+            
+            // Sembunyikan dalam 6 detik
+            setTimeout(() => {
+                toast.classList.add('-translate-y-32');
+            }, 6000);
+        }
+
+        // Menampilkan UI Utama Camat (Berbasis Kartu Dinamis)
+        function renderCamatView() {
+            const month = document.getElementById('evalMonth').value;
+            const container = document.getElementById('camatCardContainer');
+            container.innerHTML = "";
+
+            let countCompleted = 0;
+
+            employees.forEach(emp => {
+                const exist = assessments.find(a => a.empId === emp.id && a.month === month);
+                let lockStatusText = "";
+                let isLocked = false;
+
+                if (exist) {
+                    countCompleted++;
+                    // Batas waktu edit: 25 hari setelah tanggal simpan
+                    const msPassed = Date.now() - exist.savedAt;
+                    const daysPassed = msPassed / (1000 * 60 * 60 * 24);
+                    
+                    if (daysPassed > 25) {
+                        isLocked = true;
+                        lockStatusText = `<span class="text-[9px] font-bold bg-rose-50 text-rose-600 px-2 py-0.5 rounded-md"><i class="fa-solid fa-lock"></i> Terkunci (>25 Hari)</span>`;
+                    } else {
+                        const daysLeft = Math.ceil(25 - daysPassed);
+                        lockStatusText = `<span class="text-[9px] font-bold bg-amber-50 text-amber-600 px-2 py-0.5 rounded-md"><i class="fa-solid fa-clock"></i> Sisa Edit: ${daysLeft} Hari</span>`;
+                    }
+                }
+
+                const cardHtml = `
+                    <div class="bg-white p-5 rounded-3xl shadow-xs border border-slate-100 flex flex-col justify-between space-y-4">
+                        <div class="flex justify-between items-start">
+                            <div class="max-w-[70%]">
+                                <h4 class="font-extrabold text-slate-800 text-sm leading-tight">${emp.name}</h4>
+                                <p class="text-[10px] text-slate-400 font-bold mt-1 uppercase tracking-tight">${emp.jabatan} (${emp.gol})</p>
+                            </div>
+                            <div class="text-right">
+                                ${exist ? `<span class="text-[10px] font-black bg-emerald-100 text-emerald-600 px-2.5 py-1 rounded-full">Selesai</span>` : `<span class="text-[10px] font-black bg-slate-100 text-slate-400 px-2.5 py-1 rounded-full">Belum</span>`}
+                                <div class="mt-2">${lockStatusText}</div>
+                            </div>
+                        </div>
+
+                        <div class="flex items-center space-x-2 pt-1 border-t border-slate-50">
+                            <select id="pred_${emp.id}" ${isLocked ? 'disabled' : ''} class="flex-1 bg-slate-50 border border-slate-200 rounded-xl py-3 px-3.5 text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500">
+                                <option value="">Pilih Predikat...</option>
+                                <option value="Sangat Baik" ${exist?.pred === 'Sangat Baik' ? 'selected' : ''}>Sangat Baik (>= 86)</option>
+                                <option value="Baik" ${exist?.pred === 'Baik' ? 'selected' : ''}>Baik (75-85)</option>
+                                <option value="Cukup" ${exist?.pred === 'Cukup' ? 'selected' : ''}>Cukup (60-74)</option>
+                                <option value="Kurang" ${exist?.pred === 'Kurang' ? 'selected' : ''}>Kurang (40-59)</option>
+                                <option value="Buruk" ${exist?.pred === 'Buruk' ? 'selected' : ''}>Buruk (< 40)</option>
+                            </select>
+                            
+                            <button onclick="saveSingleAssessment(${emp.id})" ${isLocked ? 'disabled' : ''} class="bg-indigo-600 hover:bg-indigo-700 text-white w-12 h-12 rounded-xl flex items-center justify-center active:scale-95 disabled:opacity-40 transition-transform">
+                                <i class="fa-solid fa-check"></i>
+                            </button>
+                        </div>
+                    </div>
+                `;
+                container.innerHTML += cardHtml;
+            });
+
+            // Update badge info atas
+            document.getElementById('camatCompletionBadge').textContent = `${countCompleted} / ${employees.length} Pegawai`;
+        }
+
+        // Menampilkan Layar Kasubag Kepegawaian (Tampilan detail nilai & pembagi dinamis)
+        function renderKasubagView() {
+            const month = document.getElementById('kasubagFilterMonth').value;
+            const container = document.getElementById('kasubagCardContainer');
+            container.innerHTML = "";
+
+            const monthData = assessments.filter(a => a.month === month);
+
+            if (monthData.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-12 px-4 bg-white rounded-3xl border border-dashed border-slate-200">
+                        <i class="fa-solid fa-folder-open text-4xl text-slate-300 mb-3"></i>
+                        <p class="text-xs font-bold text-slate-400">Belum ada penilaian kinerja di bulan ${month}.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            monthData.forEach(item => {
+                const emp = employees.find(e => e.id === item.empId);
+                if (!emp) return;
+
+                // Hitung Rata-rata: Struktural dibagi 5, Staf dibagi 4 (Tanpa kepemimpinan)
+                const isStructural = emp.type === 'struktural';
+                const totalScore = item.scores.pelayanan + item.scores.integritas + item.scores.komitmen + item.scores.kerjasama + (isStructural ? item.scores.kepemimpinan : 0);
+                const divisor = isStructural ? 5 : 4;
+                const average = (totalScore / divisor).toFixed(1);
+
+                const cardHtml = `
+                    <div class="bg-white p-5 rounded-3xl shadow-xs border border-slate-100 space-y-4">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <h4 class="font-extrabold text-slate-800 text-sm leading-tight">${emp.name}</h4>
+                                <p class="text-[10px] text-indigo-500 font-bold mt-1 uppercase tracking-tight">${emp.jabatan} (${emp.gol})</p>
+                            </div>
+                            <span class="text-[10px] font-black bg-indigo-100 text-indigo-600 px-3 py-1 rounded-full">${item.pred}</span>
+                        </div>
+
+                        <!-- Grid 5 atau 4 Komponen Penilaian -->
+                        <div class="grid grid-cols-2 gap-2 text-[10px] font-extrabold text-slate-500 pt-2 border-t border-slate-50">
+                            <div class="bg-slate-50 p-2 rounded-xl">Orientasi Pelayanan: <span class="text-slate-800 text-xs block mt-0.5">${item.scores.pelayanan}</span></div>
+                            <div class="bg-slate-50 p-2 rounded-xl">Integritas: <span class="text-slate-800 text-xs block mt-0.5">${item.scores.integritas}</span></div>
+                            <div class="bg-slate-50 p-2 rounded-xl">Komitmen: <span class="text-slate-800 text-xs block mt-0.5">${item.scores.komitmen}</span></div>
+                            <div class="bg-slate-50 p-2 rounded-xl">Kerja Sama: <span class="text-slate-800 text-xs block mt-0.5">${item.scores.kerjasama}</span></div>
+                            
+                            ${isStructural ? `<div class="bg-indigo-50/50 p-2 rounded-xl col-span-2">Kepemimpinan (Struktural): <span class="text-indigo-600 text-xs block mt-0.5">${item.scores.kepemimpinan}</span></div>` : ''}
+                        </div>
+
+                        <div class="flex justify-between items-center pt-2 border-t border-slate-50">
+                            <span class="text-xs font-bold text-slate-400">Nilai Rata-Rata (${divisor} Komponen):</span>
+                            <span class="text-base font-black text-indigo-600">${average}</span>
+                        </div>
+                    </div>
+                `;
+                container.innerHTML += cardHtml;
+            });
+        }
+
+        // Sub-Tab Admin (Pegawai / Nilai)
+        function switchAdminSubTab(tab) {
+            currentAdminSubTab = tab;
+            const btnPegawai = document.getElementById('adminTabPegawai');
+            const btnNilai = document.getElementById('adminTabNilai');
+            const secPegawai = document.getElementById('adminPegawaiSection');
+            const secNilai = document.getElementById('adminNilaiSection');
+
+            if (tab === 'pegawai') {
+                btnPegawai.className = "flex-1 text-center py-2.5 rounded-xl text-xs font-extrabold bg-white text-indigo-600 shadow-sm transition-all";
+                btnNilai.className = "flex-1 text-center py-2.5 rounded-xl text-xs font-extrabold text-slate-500 transition-all";
+                secPegawai.classList.remove('hidden');
+                secNilai.classList.add('hidden');
+            } else {
+                btnNilai.className = "flex-1 text-center py-2.5 rounded-xl text-xs font-extrabold bg-white text-indigo-600 shadow-sm transition-all";
+                btnPegawai.className = "flex-1 text-center py-2.5 rounded-xl text-xs font-extrabold text-slate-500 transition-all";
+                secNilai.classList.remove('hidden');
+                secPegawai.classList.add('hidden');
+                renderAdminMonitoringNilai();
+            }
+        }
+
+        // Tampilan Admin utama
+        function renderAdminView() {
+            // Render sub-bagian data pegawai terlebih dahulu
+            const container = document.getElementById('adminPegawaiSection');
+            container.innerHTML = "";
+
+            employees.forEach(emp => {
+                const cardHtml = `
+                    <div class="bg-white p-4 rounded-3xl shadow-xs border border-slate-100 flex justify-between items-center">
+                        <div class="max-w-[70%]">
+                            <h4 class="font-bold text-slate-800 text-sm leading-tight">${emp.name}</h4>
+                            <p class="text-[9px] text-slate-400 font-bold mt-1 uppercase tracking-wider">${emp.jabatan}</p>
+                            <p class="text-[9px] text-indigo-500 font-mono font-bold">NIP: ${emp.nip}</p>
+                        </div>
+                        <div class="flex space-x-1.5">
+                            <button onclick="editEmployee(${emp.id})" class="w-8 h-8 bg-slate-50 text-slate-500 hover:bg-slate-100 rounded-lg flex items-center justify-center text-xs transition-all">
+                                <i class="fa-solid fa-pen"></i>
+                            </button>
+                            <button onclick="deleteEmployee(${emp.id})" class="w-8 h-8 bg-red-50 text-red-500 hover:bg-red-100 rounded-lg flex items-center justify-center text-xs transition-all">
+                                <i class="fa-solid fa-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                `;
+                container.innerHTML += cardHtml;
+            });
+
+            // Render tab nilai bila saat ini terpilih
+            if (currentAdminSubTab === 'nilai') {
+                renderAdminMonitoringNilai();
+            }
+        }
+
+        // Tab Pantau Nilai oleh Admin (Salinan data Kasubag yang bisa diset ulang nilainya)
+        function renderAdminMonitoringNilai() {
+            const month = document.getElementById('adminFilterMonth').value;
+            const container = document.getElementById('adminNilaiSection');
+            container.innerHTML = "";
+
+            const monthData = assessments.filter(a => a.month === month);
+
+            if (monthData.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-12 bg-white rounded-3xl border border-dashed border-slate-200">
+                        <i class="fa-solid fa-chart-line text-3xl text-slate-300 mb-2"></i>
+                        <p class="text-xs text-slate-400 font-bold">Belum ada nilai di bulan ${month}.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            monthData.forEach(item => {
+                const emp = employees.find(e => e.id === item.empId);
+                if (!emp) return;
+
+                const isStructural = emp.type === 'struktural';
+                const divisor = isStructural ? 5 : 4;
+                const average = ((item.scores.pelayanan + item.scores.integritas + item.scores.komitmen + item.scores.kerjasama + (isStructural ? item.scores.kepemimpinan : 0)) / divisor).toFixed(1);
+
+                const cardHtml = `
+                    <div class="bg-white p-4 rounded-3xl shadow-xs border border-slate-100 space-y-3">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <h4 class="font-extrabold text-slate-700 text-xs leading-tight">${emp.name}</h4>
+                                <p class="text-[9px] text-indigo-500 font-semibold">${emp.jabatan}</p>
+                            </div>
+                            <button onclick="deleteAssessment(${item.empId}, '${month}')" class="text-rose-500 hover:text-rose-700 text-xs font-bold bg-rose-50 px-2 py-1 rounded-lg">
+                                <i class="fa-solid fa-circle-xmark mr-1"></i>Reset Nilai
+                            </button>
+                        </div>
+                        <div class="flex justify-between text-[10px] bg-slate-50 p-2 rounded-xl text-slate-600 font-bold">
+                            <span>Predikat: <strong>${item.pred}</strong></span>
+                            <span>Rata-Rata: <strong class="text-indigo-600">${average}</strong></span>
+                        </div>
+                    </div>
+                `;
+                container.innerHTML += cardHtml;
+            });
+        }
+
+        // Menghapus Nilai Pegawai (Fitur Admin)
+        function deleteAssessment(empId, month) {
+            if (confirm("Apakah Anda yakin ingin menghapus/mereset nilai untuk pegawai ini di bulan " + month + "?")) {
+                assessments = assessments.filter(a => !(a.empId === empId && a.month === month));
+                localStorage.setItem('tutuyan_pwa_assessments', JSON.stringify(assessments));
+                renderAdminView();
+            }
+        }
+
+        // CRUD: Modal Pegawai
+        function openEmployeeModal() {
+            document.getElementById('editEmpId').value = "";
+            document.getElementById('empName').value = "";
+            document.getElementById('empNip').value = "";
+            document.getElementById('empGol').value = "";
+            document.getElementById('empJabatan').value = "";
+            document.getElementById('empType').value = "struktural";
+            document.getElementById('modalEmpTitle').textContent = "Tambah Pegawai Baru";
+            document.getElementById('employeeModal').classList.remove('hidden');
+        }
+
+        function closeEmployeeModal() {
+            document.getElementById('employeeModal').classList.add('hidden');
+        }
+
+        function editEmployee(id) {
+            const emp = employees.find(e => e.id === id);
+            if (!emp) return;
+
+            document.getElementById('editEmpId').value = emp.id;
+            document.getElementById('empName').value = emp.name;
+            document.getElementById('empNip').value = emp.nip;
+            document.getElementById('empGol').value = emp.gol;
+            document.getElementById('empJabatan').value = emp.jabatan;
+            document.getElementById('empType').value = emp.type;
+            document.getElementById('modalEmpTitle').textContent = "Edit Data Pegawai";
+
+            document.getElementById('employeeModal').classList.remove('hidden');
+        }
+
+        function saveEmployeeData() {
+            const id = document.getElementById('editEmpId').value;
+            const name = document.getElementById('empName').value;
+            const nip = document.getElementById('empNip').value;
+            const gol = document.getElementById('empGol').value;
+            const jabatan = document.getElementById('empJabatan').value;
+            const type = document.getElementById('empType').value;
+
+            if (!name || !nip || !gol || !jabatan) {
+                alert("Harap lengkapi semua isian formulir!");
+                return;
+            }
+
+            if (id) {
+                // Edit pegawai lama
+                employees = employees.map(e => e.id === parseInt(id) ? { id: parseInt(id), name, nip, gol, jabatan, type } : e);
+            } else {
+                // Tambah baru
+                const newId = Date.now();
+                employees.push({ id: newId, name, nip, gol, jabatan, type });
+            }
+
+            localStorage.setItem('tutuyan_pwa_employees', JSON.stringify(employees));
+            closeEmployeeModal();
+            renderAdminView();
+        }
+
+        function deleteEmployee(id) {
+            if (confirm("Apakah Anda yakin ingin menghapus pegawai ini dari database?")) {
+                employees = employees.filter(e => e.id !== id);
+                assessments = assessments.filter(a => a.empId !== id); // Bersihkan nilai kinerjanya juga
+                localStorage.setItem('tutuyan_pwa_employees', JSON.stringify(employees));
+                localStorage.setItem('tutuyan_pwa_assessments', JSON.stringify(assessments));
+                renderAdminView();
+            }
+        }
+
+        // MODAL: Ganti PIN
+        function openChangePinModal() {
+            const wrapper = document.getElementById('adminPinTargetWrapper');
+            if (currentActiveRole === 'admin') {
+                wrapper.classList.remove('hidden');
+            } else {
+                wrapper.classList.add('hidden');
+            }
+            document.getElementById('newPin').value = "";
+            document.getElementById('changePinModal').classList.remove('hidden');
+        }
+
+        function closeChangePinModal() {
+            document.getElementById('changePinModal').classList.add('hidden');
+        }
+
+        function saveNewPin() {
+            const newPin = document.getElementById('newPin').value;
+            if (newPin.length !== 6 || isNaN(newPin)) {
+                alert("PIN baru wajib terdiri dari 6 digit angka saja!");
+                return;
+            }
+
+            let targetRole = currentActiveRole;
+            if (currentActiveRole === 'admin') {
+                targetRole = document.getElementById('adminPinTarget').value;
+            }
+
+            config.pins[targetRole] = newPin;
+            localStorage.setItem('tutuyan_pwa_config', JSON.stringify(config));
+            
+            alert(`PIN Keamanan untuk akun ${targetRole.toUpperCase()} berhasil diubah menjadi: ${newPin}`);
+            closeChangePinModal();
+        }
+
+        // Atur Tanggal Hari Ini di Header HP
+        window.onload = function () {
+            const dateDisplay = document.getElementById('currentDate');
+            const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+            dateDisplay.textContent = new Date().toLocaleDateString('id-ID', options);
+        };
+    </script>
+</body>
+</html>
