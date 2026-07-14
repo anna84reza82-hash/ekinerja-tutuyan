@@ -161,7 +161,7 @@
         </main>
 
         <!-- BOTTOM MOBILE NAVIGATION BAR -->
-        <nav class="fixed bottom-0 inset-x-0 bg-white/95 backdrop-blur-md border-t border-slate-200/80 z-40 shadow-2xl flex justify-around safe-bottom">
+        <nav id="bottomNav" class="fixed bottom-0 inset-x-0 bg-white/95 backdrop-blur-md border-t border-slate-200/80 z-40 shadow-2xl flex justify-around safe-bottom">
             <button onclick="switchRoleView('camat')" id="nav-camat" class="flex-1 flex flex-col items-center justify-center py-3 text-slate-400 active:scale-95 transition-all">
                 <i class="fa-solid fa-clipboard-user text-lg"></i>
                 <span class="text-[9px] font-bold mt-1">Camat</span>
@@ -287,13 +287,29 @@
         ];
 
         // Memuat database utama dari browser
-        let employees = JSON.parse(localStorage.getItem('tutuyan_pwa_employees')) || initialEmployees;
+        let employees = JSON.parse(localStorage.getItem('tutuyan_pwa_employees')) || [];
+        
+        // LOGIKA DETEKSI DAN SINKRONISASI OTOMATIS PEGAWAI YANG HILANG
+        if (employees.length === 0) {
+            employees = [...initialEmployees];
+        } else {
+            // Periksa jika ada pegawai dari initialEmployees yang belum masuk ke penyimpanan lokal
+            initialEmployees.forEach(initEmp => {
+                const isExist = employees.some(e => e.nip.trim() === initEmp.nip.trim());
+                if (!isExist) {
+                    employees.push(initEmp); // Ambil dan masukkan yang terlewat
+                }
+            });
+        }
+        localStorage.setItem('tutuyan_pwa_employees', JSON.stringify(employees));
+
         let assessments = JSON.parse(localStorage.getItem('tutuyan_pwa_assessments')) || [];
         let config = JSON.parse(localStorage.getItem('tutuyan_pwa_config')) || {
             pins: { camat: "123456", kasubag: "123456", admin: "123456" }
         };
 
         let currentActiveRole = 'camat';
+        let loggedInRole = ''; // Pengunci Hak Akses Sesuai Akun Login
         let currentAdminSubTab = 'pegawai';
 
         // Penanganan Login
@@ -302,6 +318,7 @@
             const pin = document.getElementById('loginPin').value;
 
             if (config.pins[role] === pin) {
+                loggedInRole = role; // Daftarkan hak akses resmi pada sesi ini
                 document.getElementById('loginPage').classList.add('hidden');
                 document.getElementById('mainApp').classList.remove('hidden');
                 
@@ -318,6 +335,7 @@
         }
 
         function handleLogout() {
+            loggedInRole = ''; // Reset hak akses saat keluar
             document.getElementById('loginPage').classList.remove('hidden');
             document.getElementById('mainApp').classList.add('hidden');
             document.getElementById('loginPin').value = "";
@@ -325,6 +343,11 @@
 
         // Beralih Tab Menu Peran
         function switchRoleView(role) {
+            // BLOKADE KEAMANAN: Paksa pengguna kembali ke dashboard-nya sendiri jika mencoba bypass tab
+            if (role !== loggedInRole) {
+                role = loggedInRole;
+            }
+            
             currentActiveRole = role;
             
             // Sembunyikan semua layar
@@ -338,6 +361,17 @@
             // Aktifkan layar tujuan
             document.getElementById(role + 'View').classList.remove('hidden');
             document.getElementById('nav-' + role).className = "flex-1 flex flex-col items-center justify-center py-3 text-indigo-600 active:scale-95 transition-all border-t-2 border-indigo-600 bg-indigo-50/20";
+
+            // SEMBUNYIKAN MENU SWITCHER UTAMA (Sistem Navigasi Bawah)
+            // Hal ini dikarenakan setiap peran hanya berhak mengakses 1 dashboard tunggal
+            const bottomNav = document.getElementById('bottomNav');
+            bottomNav.classList.add('hidden');
+
+            // Sesuaikan kembali ruang scroll bawah agar tampilan HP menjadi sangat bersih
+            document.querySelectorAll('main').forEach(m => {
+                m.classList.remove('safe-bottom');
+                m.classList.add('pb-12');
+            });
 
             // Muat data spesifik
             if (role === 'camat') renderCamatView();
