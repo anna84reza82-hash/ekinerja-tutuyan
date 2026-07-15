@@ -12,7 +12,8 @@
     <!-- PWA Meta Tags -->
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#4f46e5">
-    <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/3208/3208358.png">
+    <link rel="apple-touch-icon" href="apple-touch-icon.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
 
     <!-- Firebase SDK Compat (Untuk kemudahan integrasi tanpa server-build) -->
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
@@ -98,9 +99,7 @@
                     <div>
                         <p class="opacity-75 text-[10px] font-bold uppercase tracking-wider">Bulan Penilaian</p>
                         <select id="evalMonth" onchange="renderCamatView()" class="bg-indigo-700/60 font-bold text-sm text-white rounded-xl py-1.5 px-3 border border-indigo-400/30 outline-none mt-1">
-                            <option value="Juli 2026">Juli 2026</option>
-                            <option value="Juni 2026">Juni 2026</option>
-                            <option value="Mei 2026">Mei 2026</option>
+                            <!-- Opsi bulan digenerate otomatis oleh JS (lihat generateMonthOptions) -->
                         </select>
                     </div>
                     <div class="text-right">
@@ -124,9 +123,7 @@
             <div class="flex items-center justify-between mb-2">
                 <h3 class="font-black text-slate-800 text-md">Rekapitulasi Nilai Bulanan</h3>
                 <select id="kasubagFilterMonth" onchange="renderKasubagView()" class="bg-white text-xs font-bold text-slate-700 rounded-xl py-2 px-3 border border-slate-200 shadow-sm outline-none">
-                    <option value="Juli 2026">Juli 2026</option>
-                    <option value="Juni 2026">Juni 2026</option>
-                    <option value="Mei 2026">Mei 2026</option>
+                    <!-- Opsi bulan digenerate otomatis oleh JS (lihat generateMonthOptions) -->
                 </select>
             </div>
 
@@ -144,9 +141,7 @@
                     <i class="fa-solid fa-plus-circle"></i> Tambah Pegawai Baru
                 </button>
                 <select id="adminFilterMonth" onchange="renderAdminView()" class="bg-white text-xs font-bold text-slate-700 rounded-2xl py-3.5 px-3 border border-slate-200 shadow-sm outline-none">
-                    <option value="Juli 2026">Juli 2026</option>
-                    <option value="Juni 2026">Juni 2026</option>
-                    <option value="Mei 2026">Mei 2026</option>
+                    <!-- Opsi bulan digenerate otomatis oleh JS (lihat generateMonthOptions) -->
                 </select>
             </div>
 
@@ -361,6 +356,54 @@
         let currentAdminSubTab = 'pegawai';
         let database = null;
         let isOnline = false;
+
+        // ===== GENERATOR DAFTAR BULAN DINAMIS (Perbaikan #8) =====
+        // Sebelumnya daftar bulan di-hardcode (Mei/Juni/Juli 2026) sehingga aplikasi
+        // harus diedit manual setiap bulan. Sekarang daftar dibuat otomatis relatif
+        // terhadap tanggal berjalan: MONTHS_BACK bulan ke belakang s/d MONTHS_FORWARD
+        // bulan ke depan, diurutkan dari yang terbaru ke yang terlama.
+        const NAMA_BULAN_ID = [
+            "Januari", "Februari", "Maret", "April", "Mei", "Juni",
+            "Juli", "Agustus", "September", "Oktober", "November", "Desember"
+        ];
+        const MONTHS_BACK = 12;
+        const MONTHS_FORWARD = 1;
+
+        function getMonthList() {
+            const list = [];
+            const now = new Date();
+            for (let i = MONTHS_FORWARD; i >= -MONTHS_BACK; i--) {
+                const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+                list.push(`${NAMA_BULAN_ID[d.getMonth()]} ${d.getFullYear()}`);
+            }
+            return list; // sudah terurut terbaru -> terlama
+        }
+
+        function getCurrentMonthLabel() {
+            const now = new Date();
+            return `${NAMA_BULAN_ID[now.getMonth()]} ${now.getFullYear()}`;
+        }
+
+        // Mengisi ulang <select> bulan sambil mempertahankan pilihan sebelumnya jika masih ada
+        function populateMonthSelect(selectId, defaultToCurrent) {
+            const el = document.getElementById(selectId);
+            if (!el) return;
+            const prevValue = el.value;
+            const months = getMonthList();
+            el.innerHTML = months.map(m => `<option value="${m}">${m}</option>`).join('');
+
+            if (prevValue && months.includes(prevValue)) {
+                el.value = prevValue;
+            } else if (defaultToCurrent) {
+                el.value = getCurrentMonthLabel();
+            }
+        }
+
+        function generateMonthOptions() {
+            populateMonthSelect('evalMonth', true);
+            populateMonthSelect('kasubagFilterMonth', true);
+            populateMonthSelect('adminFilterMonth', true);
+        }
 
         // Inisialisasi Firebase Database
         function initFirebase() {
@@ -959,6 +1002,7 @@
             const dateDisplay = document.getElementById('dateText');
             const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
             dateDisplay.textContent = new Date().toLocaleDateString('id-ID', options);
+            generateMonthOptions();
             initFirebase();
         };
     </script>
