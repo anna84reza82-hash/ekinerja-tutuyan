@@ -608,16 +608,34 @@
             }
         }
 
-        // Rumus: (TKD - (TKD * %PotonganKinerja)) - (TKD - (TKD * %PotonganKinerja)) * %PPh21
-        function hitungTKDDiterima(besaranTKD, pred, pph21) {
+        // Rumus (per revisi terbaru):
+        // Potongan Kehadiran (Rp)     = Besaran TKD x % Potongan Kehadiran
+        // Potongan Kinerja (Rp)       = Besaran TKD x % Potongan Kinerja
+        // TKD Diterima (sebelum pajak) = Besaran TKD - Potongan Kehadiran (Rp) - Potongan Kinerja (Rp)
+        // TKD Diterima                = TKD Diterima (sebelum pajak) - TKD Diterima (sebelum pajak) x % PPh 21
+        function hitungTKDLengkap(besaranTKD, pred, pph21, potonganKehadiranPersen) {
             const tkd = Number(besaranTKD) || 0;
-            const pajak = Number(pph21) || 0;
-            const potonganPersen = getPotonganKinerjaPercent(pred);
+            const pajakPersen = Number(pph21) || 0;
+            const kinerjaPersen = getPotonganKinerjaPercent(pred);
+            const kehadiranPersen = Number(potonganKehadiranPersen) || 0;
 
-            const setelahPotonganKinerja = tkd - (tkd * potonganPersen / 100);
-            const setelahPph21 = setelahPotonganKinerja - (setelahPotonganKinerja * pajak / 100);
+            const potonganKehadiranRp = tkd * (kehadiranPersen / 100);
+            const potonganKinerjaRp = tkd * (kinerjaPersen / 100);
 
-            return setelahPph21;
+            const sebelumPajak = tkd - potonganKehadiranRp - potonganKinerjaRp;
+            const setelahPajak = sebelumPajak - (sebelumPajak * pajakPersen / 100);
+
+            return {
+                potonganKehadiranRp,
+                potonganKinerjaRp,
+                sebelumPajak,
+                setelahPajak
+            };
+        }
+
+        // Jumlah Maksimal TKD Diterima = hasil rumus di atas dengan asumsi Potongan Kehadiran 0%
+        function hitungTKDDiterima(besaranTKD, pred, pph21) {
+            return hitungTKDLengkap(besaranTKD, pred, pph21, 0).setelahPajak;
         }
 
         function formatRupiah(num) {
@@ -625,41 +643,33 @@
             return 'Rp ' + val.toLocaleString('id-ID');
         }
 
-        // Potongan Kehadiran (Rupiah) = % Potongan Kehadiran x Besaran TKD x 0,4
-        function hitungPotonganKehadiranRupiah(besaranTKD, potonganKehadiranPersen) {
-            const tkd = Number(besaranTKD) || 0;
-            const persen = Number(potonganKehadiranPersen) || 0;
-            return (persen / 100) * tkd * 0.4;
-        }
-
         // Blok tampilan TKD yang dipakai bersama di dashboard Camat, Kasubag, dan Admin.
         // Kalau Kasubag belum mengisi Potongan Kehadiran, tampil "Jumlah Maksimal TKD Diterima".
         // Kalau sudah diisi, berubah jadi "Jumlah TKD Diterima" + rincian potongannya.
         function renderTKDInfoBlock(emp, pred, potonganKehadiranPersen) {
-            const jumlahMaksimal = hitungTKDDiterima(emp.besaranTKD, pred, emp.pph21);
             const adaPotonganKehadiran = potonganKehadiranPersen !== null && potonganKehadiranPersen !== undefined && potonganKehadiranPersen !== '';
+            const kehadiranPersen = adaPotonganKehadiran ? Number(potonganKehadiranPersen) : 0;
+
+            const hasil = hitungTKDLengkap(emp.besaranTKD, pred, emp.pph21, kehadiranPersen);
 
             if (!adaPotonganKehadiran) {
                 return `
                     <div class="bg-emerald-50 border border-emerald-100 rounded-xl px-3 py-2">
                         <p class="text-[9px] font-bold text-emerald-600 uppercase tracking-wider">Jumlah Maksimal TKD Diterima</p>
-                        <p class="text-sm font-black text-emerald-700">${formatRupiah(jumlahMaksimal)}</p>
+                        <p class="text-sm font-black text-emerald-700">${formatRupiah(hasil.setelahPajak)}</p>
                     </div>
                 `;
             }
-
-            const potonganRupiah = hitungPotonganKehadiranRupiah(emp.besaranTKD, potonganKehadiranPersen);
-            const jumlahDiterima = jumlahMaksimal - potonganRupiah;
 
             return `
                 <div class="bg-emerald-50 border border-emerald-100 rounded-xl px-3 py-2 space-y-1.5">
                     <div>
                         <p class="text-[9px] font-bold text-emerald-600 uppercase tracking-wider">Jumlah TKD Diterima</p>
-                        <p class="text-sm font-black text-emerald-700">${formatRupiah(jumlahDiterima)}</p>
+                        <p class="text-sm font-black text-emerald-700">${formatRupiah(hasil.setelahPajak)}</p>
                     </div>
                     <div class="flex justify-between items-center text-[9px] font-bold text-rose-500 pt-1.5 border-t border-emerald-100">
                         <span>Potongan Kehadiran (${potonganKehadiranPersen}%)</span>
-                        <span>- ${formatRupiah(potonganRupiah)}</span>
+                        <span>- ${formatRupiah(hasil.potonganKehadiranRp)}</span>
                     </div>
                 </div>
             `;
