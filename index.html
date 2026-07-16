@@ -408,7 +408,30 @@
         </div>
     </div>
 
-    <!-- MODAL: RIWAYAT & TREN ANTAR BULAN -->
+    <!-- MODAL: UBAH PIN PEGAWAI (Mandiri) -->
+    <div id="pegawaiChangePinModal" class="fixed inset-0 z-50 hidden bg-black/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-4">
+        <div class="bg-white w-full max-w-sm rounded-t-3xl sm:rounded-3xl p-6 shadow-2xl space-y-4 border border-slate-100">
+            <div class="flex justify-between items-center border-b border-slate-100 pb-3">
+                <h4 class="font-extrabold text-slate-800 text-base">Ganti PIN Saya</h4>
+                <button onclick="closePegawaiChangePinModal()" class="w-8 h-8 bg-slate-50 text-slate-400 hover:text-slate-600 rounded-full flex items-center justify-center">
+                    <i class="fa-solid fa-times"></i>
+                </button>
+            </div>
+            <div class="space-y-3">
+                <div>
+                    <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">PIN Baru (6 Digit Angka)</label>
+                    <input type="password" id="pegawaiNewPin" placeholder="••••••" maxlength="6" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-center text-xl font-bold tracking-[0.5em] outline-none focus:ring-2 focus:ring-indigo-500">
+                </div>
+                <div>
+                    <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Konfirmasi PIN Baru</label>
+                    <input type="password" id="pegawaiConfirmPin" placeholder="••••••" maxlength="6" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-center text-xl font-bold tracking-[0.5em] outline-none focus:ring-2 focus:ring-indigo-500">
+                </div>
+            </div>
+            <button onclick="savePegawaiPin()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 text-center rounded-2xl shadow-lg shadow-indigo-100 active:scale-95 transition-transform text-xs">
+                Simpan PIN Baru
+            </button>
+        </div>
+    </div>
     <div id="historyModal" class="fixed inset-0 z-50 hidden bg-black/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-4">
         <div class="bg-white w-full max-w-lg rounded-t-3xl sm:rounded-3xl p-6 shadow-2xl border border-slate-100 max-h-[85vh] flex flex-col">
             <div class="flex justify-between items-start border-b border-slate-100 pb-3 mb-4">
@@ -947,6 +970,45 @@
             }
         }
 
+        // Pegawai mengubah PIN login miliknya sendiri (tanpa perlu lewat Admin)
+        function openPegawaiChangePinModal() {
+            if (!selectedPegawaiId) return;
+            document.getElementById('pegawaiNewPin').value = "";
+            document.getElementById('pegawaiConfirmPin').value = "";
+            document.getElementById('pegawaiChangePinModal').classList.remove('hidden');
+        }
+
+        function closePegawaiChangePinModal() {
+            document.getElementById('pegawaiChangePinModal').classList.add('hidden');
+        }
+
+        function savePegawaiPin() {
+            const emp = employees.find(e => e.id === selectedPegawaiId);
+            if (!emp) return;
+
+            const newPin = document.getElementById('pegawaiNewPin').value.trim();
+            const confirmPin = document.getElementById('pegawaiConfirmPin').value.trim();
+
+            if (!/^\d{6}$/.test(newPin)) {
+                alert("PIN baru harus terdiri dari 6 digit angka!");
+                return;
+            }
+            if (newPin !== confirmPin) {
+                alert("Konfirmasi PIN tidak cocok. Silakan ulangi.");
+                return;
+            }
+
+            employees = employees.map(e => e.id === emp.id ? { ...e, pin: newPin } : e);
+            localStorage.setItem('tutuyan_pwa_employees', JSON.stringify(employees));
+
+            if (isOnline) {
+                database.ref('employees').set(employees);
+            }
+
+            closePegawaiChangePinModal();
+            alert("PIN Anda berhasil diubah. Gunakan PIN baru ini untuk login berikutnya.");
+        }
+
         // State C: Dashboard personal pegawai (read-only): status bulan berjalan + akses Riwayat
         function renderPegawaiDashboardContent(empId) {
             const emp = employees.find(e => e.id === empId);
@@ -1329,27 +1391,11 @@
                 return;
             }
 
-            const isStructural = emp.type === 'struktural';
-            const divisor = isStructural ? 5 : 4;
-            const total = item.scores.pelayanan + item.scores.integritas + item.scores.komitmen + item.scores.kerjasama + (isStructural ? (item.scores.kepemimpinan || 0) : 0);
-            const average = (total / divisor).toFixed(1);
-
             container.innerHTML = `
                 <div class="bg-white p-5 rounded-3xl shadow-xs border border-slate-100 space-y-4">
                     <div class="flex justify-between items-center">
                         <span class="text-xs font-bold text-slate-400">Predikat Penilaian</span>
                         <span class="text-[10px] font-black bg-indigo-100 text-indigo-600 px-3 py-1 rounded-full">${item.pred}</span>
-                    </div>
-                    <div class="grid grid-cols-2 gap-2 text-[10px] font-extrabold text-slate-500">
-                        <div class="bg-slate-50 p-2 rounded-xl">Orientasi Pelayanan: <span class="text-slate-800 text-xs block mt-0.5">${item.scores.pelayanan}</span></div>
-                        <div class="bg-slate-50 p-2 rounded-xl">Integritas: <span class="text-slate-800 text-xs block mt-0.5">${item.scores.integritas}</span></div>
-                        <div class="bg-slate-50 p-2 rounded-xl">Komitmen: <span class="text-slate-800 text-xs block mt-0.5">${item.scores.komitmen}</span></div>
-                        <div class="bg-slate-50 p-2 rounded-xl">Kerja Sama: <span class="text-slate-800 text-xs block mt-0.5">${item.scores.kerjasama}</span></div>
-                        ${isStructural ? `<div class="bg-indigo-50/50 p-2 rounded-xl col-span-2">Kepemimpinan: <span class="text-indigo-600 text-xs block mt-0.5">${item.scores.kepemimpinan}</span></div>` : ''}
-                    </div>
-                    <div class="flex justify-between items-center pt-2 border-t border-slate-50">
-                        <span class="text-xs font-bold text-slate-400">Nilai Rata-Rata:</span>
-                        <span class="text-base font-black text-indigo-600">${average}</span>
                     </div>
                     ${renderTKDInfoBlock(emp, item.pred, item.potonganKehadiran)}
                 </div>
@@ -2038,7 +2084,7 @@
         // MODAL: Ganti PIN
         function openChangePinModal() {
             if (loggedInRole === 'pegawai') {
-                alert("Untuk mengubah PIN pegawai, silakan hubungi Admin (lewat menu Kelola Pegawai).");
+                openPegawaiChangePinModal();
                 return;
             }
             const wrapper = document.getElementById('adminPinTargetWrapper');
