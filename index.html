@@ -113,6 +113,10 @@
                 <div class="absolute -right-4 -bottom-6 text-8xl opacity-10"><i class="fa-solid fa-clipboard-check"></i></div>
             </div>
 
+            <button onclick="openKetidakhadiranModal()" class="w-full bg-white border border-slate-200 hover:border-indigo-300 text-slate-600 hover:text-indigo-600 font-bold py-3 rounded-2xl text-xs flex items-center justify-center gap-2 transition-all shadow-xs">
+                <i class="fa-solid fa-calendar-xmark"></i> Ketidakhadiran Pegawai
+            </button>
+
             <!-- Mobile-Optimized Employee Card List -->
             <div class="space-y-3" id="camatCardContainer">
                 <!-- Cards injected here dynamically -->
@@ -127,6 +131,10 @@
                     <!-- Opsi bulan digenerate otomatis oleh JS (lihat generateMonthOptions) -->
                 </select>
             </div>
+
+            <button onclick="openKetidakhadiranModal()" class="w-full bg-white border border-slate-200 hover:border-indigo-300 text-slate-600 hover:text-indigo-600 font-bold py-3 rounded-2xl text-xs flex items-center justify-center gap-2 transition-all shadow-xs">
+                <i class="fa-solid fa-calendar-xmark"></i> Ketidakhadiran Pegawai
+            </button>
 
             <!-- List Card Rekap Kasubag -->
             <div class="space-y-3" id="kasubagCardContainer">
@@ -156,6 +164,9 @@
                 </button>
                 <button onclick="switchAdminSubTab('notifikasi')" id="adminTabNotifikasi" class="flex-1 text-center py-2.5 rounded-xl text-xs font-extrabold text-slate-500 transition-all">
                     Notifikasi WA
+                </button>
+                <button onclick="switchAdminSubTab('ketidakhadiran')" id="adminTabKetidakhadiran" class="flex-1 text-center py-2.5 rounded-xl text-xs font-extrabold text-slate-500 transition-all">
+                    Ketidakhadiran
                 </button>
             </div>
 
@@ -204,6 +215,11 @@
                         <!-- Diisi via JS -->
                     </div>
                 </div>
+            </div>
+
+            <!-- Section 2c: Ketidakhadiran Pegawai -->
+            <div id="adminKetidakhadiranSection" class="space-y-2 hidden">
+                <!-- Injected via JS -->
             </div>
 
             <!-- Section 3: Monitoring PIN (Hanya Tampil Untuk Admin) -->
@@ -410,6 +426,21 @@
         </div>
     </div>
 
+    <!-- MODAL: KETIDAKHADIRAN PEGAWAI (Camat & Kasubag) -->
+    <div id="ketidakhadiranModal" class="fixed inset-0 z-50 hidden bg-black/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-4">
+        <div class="bg-white w-full max-w-lg rounded-t-3xl sm:rounded-3xl p-6 shadow-2xl border border-slate-100 max-h-[85vh] flex flex-col">
+            <div class="flex justify-between items-center border-b border-slate-100 pb-3 mb-4">
+                <h4 class="font-extrabold text-slate-800 text-base">Ketidakhadiran Pegawai</h4>
+                <button onclick="closeKetidakhadiranModal()" class="w-8 h-8 bg-slate-50 text-slate-400 hover:text-slate-600 rounded-full flex items-center justify-center flex-shrink-0">
+                    <i class="fa-solid fa-times"></i>
+                </button>
+            </div>
+            <div id="ketidakhadiranModalBody" class="overflow-y-auto pr-1 space-y-2">
+                <!-- Diisi via JS -->
+            </div>
+        </div>
+    </div>
+
     <!-- JAVASCRIPT LOGIC -->
     <script>
         // Data Awal Pegawai Resmi Lengkap (Gambar 3)
@@ -466,6 +497,7 @@
         employees = normalizeEmployeeTKD(employees);
 
         let assessments = JSON.parse(localStorage.getItem('tutuyan_pwa_assessments')) || [];
+        let ketidakhadiran = JSON.parse(localStorage.getItem('tutuyan_pwa_ketidakhadiran')) || [];
         let config = JSON.parse(localStorage.getItem('tutuyan_pwa_config')) || {
             pins: { camat: "123456", kasubag: "123456", admin: "123456" }
         };
@@ -567,6 +599,14 @@
                         refreshActiveView();
                     });
 
+                    // Sinkronisasi data Ketidakhadiran Pegawai secara Real-Time
+                    database.ref('ketidakhadiran').on('value', (snapshot) => {
+                        const data = snapshot.val();
+                        ketidakhadiran = data ? Object.values(data) : [];
+                        localStorage.setItem('tutuyan_pwa_ketidakhadiran', JSON.stringify(ketidakhadiran));
+                        refreshActiveView();
+                    });
+
                     // Sinkronisasi data Config/PIN secara Real-Time
                     database.ref('config').on('value', (snapshot) => {
                         const data = snapshot.val();
@@ -602,6 +642,7 @@
             if (loggedInRole === 'camat') renderCamatView();
             if (loggedInRole === 'kasubag') renderKasubagView();
             if (loggedInRole === 'admin') renderAdminView();
+            if (loggedInRole === 'pegawai' && selectedPegawaiId) renderPegawaiDashboardContent(selectedPegawaiId);
         }
 
         // Penanganan Login
@@ -916,27 +957,358 @@
             container.innerHTML = `
                 <div class="bg-indigo-600 rounded-3xl p-5 text-white shadow-xl shadow-indigo-100 relative overflow-hidden">
                     <div class="relative z-10">
-                        <p class="opacity-75 text-[10px] font-bold uppercase tracking-wider">Bulan</p>
-                        <select id="pegawaiFilterMonth" onchange="renderPegawaiMonthDetail(${emp.id})" class="bg-indigo-700/60 font-bold text-sm text-white rounded-xl py-1.5 px-3 border border-indigo-400/30 outline-none mt-1">
-                            <!-- Diisi via populateMonthSelect -->
-                        </select>
-                        <h3 class="font-extrabold text-lg mt-3">${emp.name}</h3>
+                        <h3 class="font-extrabold text-lg">${emp.name}</h3>
                         <p class="opacity-75 text-xs font-semibold">${emp.jabatan} (${emp.gol})</p>
                     </div>
                     <div class="absolute -right-4 -bottom-6 text-8xl opacity-10"><i class="fa-solid fa-user"></i></div>
                 </div>
 
-                <div id="pegawaiMonthDetailContainer" class="space-y-3">
-                    <!-- Diisi via JS -->
+                <div class="flex bg-slate-100 p-1.5 rounded-2xl">
+                    <button onclick="switchPegawaiTab('penilaian')" id="pegawaiTabBtnPenilaian" class="flex-1 text-center py-2.5 rounded-xl text-xs font-extrabold bg-white text-indigo-600 shadow-sm transition-all">
+                        Penilaian & TKD
+                    </button>
+                    <button onclick="switchPegawaiTab('ketidakhadiran')" id="pegawaiTabBtnKetidakhadiran" class="flex-1 text-center py-2.5 rounded-xl text-xs font-extrabold text-slate-500 transition-all">
+                        Ketidakhadiran
+                    </button>
                 </div>
 
-                <button onclick="openHistoryModal(${emp.id})" class="w-full bg-white border border-slate-200 hover:border-indigo-300 text-slate-600 hover:text-indigo-600 font-bold py-3.5 rounded-2xl text-xs flex items-center justify-center gap-2 transition-all shadow-xs">
-                    <i class="fa-solid fa-chart-line"></i> Lihat Riwayat & Tren Semua Bulan
-                </button>
+                <div id="pegawaiTabPenilaian" class="space-y-4">
+                    <div class="bg-white p-4 rounded-3xl border border-slate-100 shadow-xs">
+                        <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Bulan</p>
+                        <select id="pegawaiFilterMonth" onchange="renderPegawaiMonthDetail(${emp.id})" class="w-full bg-slate-50 font-bold text-sm text-slate-700 rounded-xl py-2 px-3 border border-slate-200 outline-none focus:ring-2 focus:ring-indigo-500">
+                            <!-- Diisi via populateMonthSelect -->
+                        </select>
+                    </div>
+
+                    <div id="pegawaiMonthDetailContainer" class="space-y-3">
+                        <!-- Diisi via JS -->
+                    </div>
+
+                    <button onclick="openHistoryModal(${emp.id})" class="w-full bg-white border border-slate-200 hover:border-indigo-300 text-slate-600 hover:text-indigo-600 font-bold py-3.5 rounded-2xl text-xs flex items-center justify-center gap-2 transition-all shadow-xs">
+                        <i class="fa-solid fa-chart-line"></i> Lihat Riwayat & Tren Semua Bulan
+                    </button>
+                </div>
+
+                <div id="pegawaiTabKetidakhadiran" class="space-y-4 hidden">
+                    <div class="bg-white p-5 rounded-3xl border border-slate-100 shadow-xs space-y-3">
+                        <h4 class="font-black text-slate-800 text-xs uppercase tracking-wider flex items-center gap-1.5 text-indigo-600">
+                            <i class="fa-solid fa-calendar-xmark text-sm"></i> Ajukan Pemberitahuan Ketidakhadiran
+                        </h4>
+                        <div>
+                            <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Alasan</label>
+                            <textarea id="ketidakhadiranAlasan" oninput="updateKetidakhadiranPreview()" rows="2" placeholder="Contoh: Sakit demam tinggi" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm font-semibold outline-none focus:ring-2 focus:ring-indigo-500 resize-none"></textarea>
+                        </div>
+                        <div class="grid grid-cols-2 gap-2">
+                            <div>
+                                <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Tanggal Mulai</label>
+                                <input type="date" id="ketidakhadiranTglMulai" onchange="updateKetidakhadiranPreview()" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-semibold outline-none focus:ring-2 focus:ring-indigo-500">
+                            </div>
+                            <div>
+                                <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Tanggal Selesai</label>
+                                <input type="date" id="ketidakhadiranTglSelesai" onchange="updateKetidakhadiranPreview()" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-semibold outline-none focus:ring-2 focus:ring-indigo-500">
+                            </div>
+                        </div>
+                        <div id="ketidakhadiranPreview"></div>
+                        <button id="btnSubmitKetidakhadiran" onclick="submitKetidakhadiran()" class="w-full bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-bold py-3.5 rounded-2xl shadow-lg shadow-indigo-100 active:scale-95 transition-transform text-sm">
+                            Kirim Pemberitahuan
+                        </button>
+                    </div>
+
+                    <div>
+                        <h4 class="font-black text-slate-800 text-xs uppercase tracking-wider mb-2">Riwayat Ketidakhadiran Saya</h4>
+                        <div id="pegawaiKetidakhadiranList" class="space-y-2">
+                            <!-- Diisi via JS -->
+                        </div>
+                    </div>
+                </div>
             `;
 
             populateMonthSelect('pegawaiFilterMonth', true);
             renderPegawaiMonthDetail(empId);
+            renderPegawaiKetidakhadiranList(empId);
+        }
+
+        // Beralih antara tab "Penilaian & TKD" dan "Ketidakhadiran" di dashboard personal Pegawai
+        function switchPegawaiTab(tab) {
+            const tabs = {
+                penilaian: { btn: 'pegawaiTabBtnPenilaian', sec: 'pegawaiTabPenilaian' },
+                ketidakhadiran: { btn: 'pegawaiTabBtnKetidakhadiran', sec: 'pegawaiTabKetidakhadiran' }
+            };
+            Object.keys(tabs).forEach(key => {
+                const btn = document.getElementById(tabs[key].btn);
+                const sec = document.getElementById(tabs[key].sec);
+                if (!btn || !sec) return;
+                if (key === tab) {
+                    btn.className = "flex-1 text-center py-2.5 rounded-xl text-xs font-extrabold bg-white text-indigo-600 shadow-sm transition-all";
+                    sec.classList.remove('hidden');
+                } else {
+                    btn.className = "flex-1 text-center py-2.5 rounded-xl text-xs font-extrabold text-slate-500 transition-all";
+                    sec.classList.add('hidden');
+                }
+            });
+        }
+
+        // ===== FITUR: PEMBERITAHUAN KETIDAKHADIRAN PEGAWAI =====
+
+        // Menghitung jumlah hari dalam rentang tanggal (inklusif tanggal mulai & selesai)
+        function hitungJumlahHari(tglMulai, tglSelesai) {
+            const start = new Date(tglMulai);
+            const end = new Date(tglSelesai);
+            const diffMs = end - start;
+            const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24)) + 1;
+            return diffDays > 0 ? diffDays : 0;
+        }
+
+        // Mengubah tanggal ISO (yyyy-mm-dd) menjadi label bulan konsisten dengan format aplikasi (mis. "Juli 2026")
+        function getBulanFromTanggal(tglString) {
+            const d = new Date(tglString);
+            return `${NAMA_BULAN_ID[d.getMonth()]} ${d.getFullYear()}`;
+        }
+
+        // Format tanggal ISO menjadi format Indonesia yang mudah dibaca (mis. "16 Juli 2026")
+        function formatTanggalIndo(tglString) {
+            const d = new Date(tglString);
+            return `${d.getDate()} ${NAMA_BULAN_ID[d.getMonth()]} ${d.getFullYear()}`;
+        }
+
+        // Total hari ketidakhadiran seorang pegawai pada bulan tertentu (akumulasi seluruh pengajuan)
+        function getTotalHariKetidakhadiranBulan(empId, bulan) {
+            return ketidakhadiran
+                .filter(k => k.empId === empId && k.bulan === bulan)
+                .reduce((sum, k) => sum + (k.jumlahHari || 0), 0);
+        }
+
+        // Menentukan jenis dokumen yang wajib dipakai & notifikasi berdasarkan akumulasi total hari ketidakhadiran bulan ini
+        function getStatusKetidakhadiran(totalHari) {
+            if (totalHari > 10) {
+                return {
+                    jenisDokumen: null,
+                    pesan: "Anda tidak bisa lagi menggunakan SPT, Surat Izin, atau Surat Sakit untuk membackup ketidakhadiran ini. Silahkan berkonsultasi dengan Camat.",
+                    blocked: true,
+                    colorClass: 'bg-rose-50 border-rose-200 text-rose-700'
+                };
+            }
+            if (totalHari > 7) {
+                return {
+                    jenisDokumen: "Surat Izin",
+                    pesan: "Anda tidak bisa lagi menggunakan Surat Sakit untuk membackup ketidakhadiran ini. Anda akan menggunakan Surat Izin.",
+                    blocked: false,
+                    colorClass: 'bg-amber-50 border-amber-200 text-amber-700'
+                };
+            }
+            if (totalHari > 5) {
+                return {
+                    jenisDokumen: "Surat Sakit",
+                    pesan: "Anda tidak bisa lagi menggunakan SPT untuk membackup ketidakhadiran ini. Anda akan menggunakan Surat Sakit.",
+                    blocked: false,
+                    colorClass: 'bg-amber-50 border-amber-200 text-amber-700'
+                };
+            }
+            return {
+                jenisDokumen: "SPT",
+                pesan: null,
+                blocked: false,
+                colorClass: 'bg-emerald-50 border-emerald-200 text-emerald-700'
+            };
+        }
+
+        // Live preview: dipanggil setiap kali alasan/tanggal diubah, sebelum data dikirim
+        function updateKetidakhadiranPreview() {
+            const emp = employees.find(e => e.id === selectedPegawaiId);
+            const preview = document.getElementById('ketidakhadiranPreview');
+            const btnSubmit = document.getElementById('btnSubmitKetidakhadiran');
+            if (!emp || !preview || !btnSubmit) return;
+
+            const tglMulai = document.getElementById('ketidakhadiranTglMulai').value;
+            const tglSelesai = document.getElementById('ketidakhadiranTglSelesai').value;
+
+            if (!tglMulai || !tglSelesai) {
+                preview.innerHTML = '';
+                btnSubmit.disabled = false;
+                return;
+            }
+
+            if (new Date(tglSelesai) < new Date(tglMulai)) {
+                preview.innerHTML = `<div class="bg-rose-50 border border-rose-200 text-rose-600 text-xs font-bold p-3 rounded-xl">Tanggal Selesai tidak boleh sebelum Tanggal Mulai.</div>`;
+                btnSubmit.disabled = true;
+                return;
+            }
+
+            const bulanMulai = getBulanFromTanggal(tglMulai);
+            const bulanSelesai = getBulanFromTanggal(tglSelesai);
+            if (bulanMulai !== bulanSelesai) {
+                preview.innerHTML = `<div class="bg-rose-50 border border-rose-200 text-rose-600 text-xs font-bold p-3 rounded-xl">Rentang tanggal harus berada dalam bulan yang sama. Silakan ajukan terpisah per bulan.</div>`;
+                btnSubmit.disabled = true;
+                return;
+            }
+
+            const jumlahHariBaru = hitungJumlahHari(tglMulai, tglSelesai);
+            const sudahAda = getTotalHariKetidakhadiranBulan(emp.id, bulanMulai);
+            const total = sudahAda + jumlahHariBaru;
+            const status = getStatusKetidakhadiran(total);
+
+            let html = `
+                <div class="bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs font-bold text-slate-600 space-y-1.5">
+                    <div class="flex justify-between"><span>Jumlah Hari (Pengajuan Ini)</span><span>${jumlahHariBaru} hari</span></div>
+                    <div class="flex justify-between"><span>Total Ketidakhadiran Bulan ${bulanMulai}</span><span>${total} hari</span></div>
+                    ${status.jenisDokumen ? `<div class="flex justify-between"><span>Dokumen yang Dipakai</span><span class="text-indigo-600">${status.jenisDokumen}</span></div>` : ''}
+                </div>
+            `;
+
+            if (status.pesan) {
+                html += `<div class="${status.colorClass} border rounded-xl p-3 text-xs font-bold mt-2">${status.pesan}</div>`;
+            }
+
+            preview.innerHTML = html;
+            btnSubmit.disabled = status.blocked;
+        }
+
+        // Mengirim Pemberitahuan Ketidakhadiran, sekaligus notifikasi WA ke Camat
+        function submitKetidakhadiran() {
+            const emp = employees.find(e => e.id === selectedPegawaiId);
+            if (!emp) return;
+
+            const alasan = document.getElementById('ketidakhadiranAlasan').value.trim();
+            const tglMulai = document.getElementById('ketidakhadiranTglMulai').value;
+            const tglSelesai = document.getElementById('ketidakhadiranTglSelesai').value;
+
+            if (!alasan) {
+                alert("Harap isi alasan ketidakhadiran.");
+                return;
+            }
+            if (!tglMulai || !tglSelesai) {
+                alert("Harap isi rentang tanggal ketidakhadiran.");
+                return;
+            }
+            if (new Date(tglSelesai) < new Date(tglMulai)) {
+                alert("Tanggal Selesai tidak boleh sebelum Tanggal Mulai.");
+                return;
+            }
+
+            const bulanMulai = getBulanFromTanggal(tglMulai);
+            const bulanSelesai = getBulanFromTanggal(tglSelesai);
+            if (bulanMulai !== bulanSelesai) {
+                alert("Rentang tanggal harus berada dalam bulan yang sama. Silakan ajukan terpisah per bulan.");
+                return;
+            }
+
+            const jumlahHariBaru = hitungJumlahHari(tglMulai, tglSelesai);
+            const sudahAda = getTotalHariKetidakhadiranBulan(emp.id, bulanMulai);
+            const total = sudahAda + jumlahHariBaru;
+            const status = getStatusKetidakhadiran(total);
+
+            if (status.blocked) {
+                alert("Total ketidakhadiran bulan ini sudah melebihi 10 hari. Silakan berkonsultasi langsung dengan Camat.");
+                return;
+            }
+
+            const record = {
+                id: Date.now(),
+                empId: emp.id,
+                bulan: bulanMulai,
+                tanggalMulai: tglMulai,
+                tanggalSelesai: tglSelesai,
+                jumlahHari: jumlahHariBaru,
+                alasan: alasan,
+                jenisDokumen: status.jenisDokumen,
+                createdAt: Date.now()
+            };
+
+            ketidakhadiran.push(record);
+            localStorage.setItem('tutuyan_pwa_ketidakhadiran', JSON.stringify(ketidakhadiran));
+
+            if (isOnline) {
+                database.ref('ketidakhadiran/' + record.id).set(record);
+            }
+
+            // Notifikasi WA otomatis ke Camat (memakai infrastruktur Fonnte yang sudah ada)
+            let pesanWA = `Pemberitahuan Ketidakhadiran dari *${emp.name}* (${emp.jabatan}).\n\nTanggal: ${formatTanggalIndo(tglMulai)} s/d ${formatTanggalIndo(tglSelesai)} (${jumlahHariBaru} hari)\nAlasan: ${alasan}\nDokumen: *${status.jenisDokumen}*`;
+            if (status.pesan) {
+                pesanWA += `\n\n${status.pesan}`;
+            }
+            triggerWaNotification(pesanWA);
+
+            alert("Pemberitahuan ketidakhadiran berhasil dikirim.");
+
+            document.getElementById('ketidakhadiranAlasan').value = '';
+            document.getElementById('ketidakhadiranTglMulai').value = '';
+            document.getElementById('ketidakhadiranTglSelesai').value = '';
+            document.getElementById('ketidakhadiranPreview').innerHTML = '';
+            document.getElementById('btnSubmitKetidakhadiran').disabled = false;
+
+            renderPegawaiKetidakhadiranList(emp.id);
+        }
+
+        // Menampilkan riwayat ketidakhadiran milik pegawai yang sedang login (tab "Ketidakhadiran" di dashboard personalnya)
+        function renderPegawaiKetidakhadiranList(empId) {
+            const container = document.getElementById('pegawaiKetidakhadiranList');
+            if (!container) return;
+
+            const records = ketidakhadiran
+                .filter(k => k.empId === empId)
+                .sort((a, b) => new Date(b.tanggalMulai) - new Date(a.tanggalMulai));
+
+            if (records.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-6 px-4 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+                        <p class="text-[10px] font-bold text-slate-400">Belum ada riwayat ketidakhadiran.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = records.map(k => `
+                <div class="bg-white p-3.5 rounded-2xl border border-slate-100 shadow-xs">
+                    <div class="flex justify-between items-center mb-1">
+                        <span class="text-[10px] font-black bg-indigo-100 text-indigo-600 px-2.5 py-1 rounded-full">${k.jenisDokumen}</span>
+                        <span class="text-[9px] font-bold text-slate-400">${k.jumlahHari} hari</span>
+                    </div>
+                    <p class="text-xs font-bold text-slate-700">${formatTanggalIndo(k.tanggalMulai)} s/d ${formatTanggalIndo(k.tanggalSelesai)}</p>
+                    <p class="text-[10px] text-slate-400 font-semibold mt-1">${k.alasan}</p>
+                </div>
+            `).join('');
+        }
+
+        // Menampilkan riwayat ketidakhadiran SELURUH pegawai (dipakai di dashboard Camat, Kasubag, dan Admin)
+        function renderKetidakhadiranGlobalList(containerId) {
+            const container = document.getElementById(containerId);
+            if (!container) return;
+
+            const records = [...ketidakhadiran].sort((a, b) => new Date(b.tanggalMulai) - new Date(a.tanggalMulai));
+
+            if (records.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-8 px-4 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+                        <p class="text-xs font-bold text-slate-400">Belum ada data ketidakhadiran pegawai.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = records.map(k => {
+                const emp = employees.find(e => e.id === k.empId);
+                const namaEmp = emp ? emp.name : 'Pegawai tidak ditemukan';
+                return `
+                    <div class="bg-white p-3.5 rounded-2xl border border-slate-100 shadow-xs">
+                        <div class="flex justify-between items-start mb-1 gap-2">
+                            <h5 class="text-xs font-extrabold text-slate-800">${namaEmp}</h5>
+                            <span class="text-[10px] font-black bg-indigo-100 text-indigo-600 px-2.5 py-1 rounded-full whitespace-nowrap flex-shrink-0">${k.jenisDokumen}</span>
+                        </div>
+                        <p class="text-xs font-bold text-slate-600">${formatTanggalIndo(k.tanggalMulai)} s/d ${formatTanggalIndo(k.tanggalSelesai)} (${k.jumlahHari} hari)</p>
+                        <p class="text-[10px] text-slate-400 font-semibold mt-1">${k.alasan}</p>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Modal Ketidakhadiran Pegawai (dipakai oleh dashboard Camat & Kasubag)
+        function openKetidakhadiranModal() {
+            renderKetidakhadiranGlobalList('ketidakhadiranModalBody');
+            document.getElementById('ketidakhadiranModal').classList.remove('hidden');
+        }
+
+        function closeKetidakhadiranModal() {
+            document.getElementById('ketidakhadiranModal').classList.add('hidden');
         }
 
         // Menampilkan detail penilaian & TKD pegawai untuk bulan yang dipilih di dashboard personalnya
@@ -1340,7 +1712,8 @@
             const tabs = {
                 pegawai: { btn: 'adminTabPegawai', sec: 'adminPegawaiSection' },
                 nilai: { btn: 'adminTabNilai', sec: 'adminNilaiSection' },
-                notifikasi: { btn: 'adminTabNotifikasi', sec: 'adminWaSection' }
+                notifikasi: { btn: 'adminTabNotifikasi', sec: 'adminWaSection' },
+                ketidakhadiran: { btn: 'adminTabKetidakhadiran', sec: 'adminKetidakhadiranSection' }
             };
 
             Object.keys(tabs).forEach((key) => {
@@ -1360,6 +1733,8 @@
                 renderAdminMonitoringNilai();
             } else if (tab === 'notifikasi') {
                 renderWaSettings();
+            } else if (tab === 'ketidakhadiran') {
+                renderKetidakhadiranGlobalList('adminKetidakhadiranSection');
             }
         }
 
@@ -1491,6 +1866,8 @@
                 renderAdminMonitoringNilai();
             } else if (currentAdminSubTab === 'notifikasi') {
                 renderWaSettings();
+            } else if (currentAdminSubTab === 'ketidakhadiran') {
+                renderKetidakhadiranGlobalList('adminKetidakhadiranSection');
             }
 
             renderPinMonitor();
