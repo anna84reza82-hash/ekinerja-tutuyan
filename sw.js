@@ -4,8 +4,15 @@
 //   gagal dimuat dan aplikasi tampil rusak total tanpa styling.
 // Perbaikan #10: sebelumnya tidak ada versioning/cleanup, sehingga update kode
 //   butuh 2x refresh dan cache lama menumpuk tanpa pernah dihapus.
+// Perbaikan #12: index.html sebelumnya ikut strategi stale-while-revalidate (sama
+//   seperti aset CDN), sehingga setiap update kode baru masih sempat menampilkan
+//   versi lama minimal sekali sebelum akhirnya ter-update di background — dan di
+//   beberapa browser/HP, update itu bahkan tidak pernah terlihat karena repond
+//   dari cache HTTP browser sendiri. Sekarang khusus untuk halaman (navigasi),
+//   dipakai strategi NETWORK-FIRST: selalu coba ambil versi terbaru dari internet
+//   dulu, cache hanya dipakai sebagai cadangan kalau benar-benar offline.
 
-const CACHE_VERSION = 'v3';
+const CACHE_VERSION = 'v4';
 const CACHE_NAME = `ekinerja-tutuyan-${CACHE_VERSION}`;
 const CACHE_PREFIX = 'ekinerja-tutuyan-';
 
@@ -77,12 +84,29 @@ self.addEventListener('fetch', (e) => {
   // Biarkan request non-GET (mis. ke Firebase) lewat jaringan langsung tanpa campur tangan SW.
   if (req.method !== 'GET') return;
 
+  const isPageNavigation = req.mode === 'navigate' || req.destination === 'document';
+
+  if (isPageNavigation) {
+    // NETWORK-FIRST khusus halaman HTML: selalu coba ambil versi terbaru dulu.
+    // { cache: 'no-store' } memastikan permintaan ini melewati cache HTTP browser,
+    // bukan cuma cache milik Service Worker, supaya update code benar-benar
+    // langsung terlihat tanpa harus refresh dua kali atau clear cache manual.
+    e.respondWith(
+      fetch(req, { cache: 'no-store' })
+        .then((networkRes) => {
+          const resClone = networkRes.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(req, resClone));
+          return networkRes;
+        })
+        .catch(() => caches.match(req).then((cached) => cached || caches.match('index.html')))
+    );
+    return;
+  }
+
+  // Untuk aset lain (CSS/JS/ikon/CDN): tetap stale-while-revalidate seperti sebelumnya
+  // (utamakan kecepatan + dukungan offline, karena aset ini jarang berubah).
   e.respondWith(
     caches.match(req).then((cachedRes) => {
-      // Strategi stale-while-revalidate: kembalikan versi cache (kalau ada) secepat
-      // mungkin, sambil tetap mengambil versi terbaru dari jaringan di latar belakang
-      // untuk memperbarui cache — jadi app tetap dapat update tanpa mengorbankan
-      // kecepatan/dukungan offline.
       const networkFetch = fetch(req)
         .then((networkRes) => {
           if (networkRes && (networkRes.ok || networkRes.type === 'opaque')) {
