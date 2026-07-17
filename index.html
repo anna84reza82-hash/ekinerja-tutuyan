@@ -1515,6 +1515,9 @@
             const container = document.getElementById(containerId);
             if (!container) return;
 
+            // Tombol hapus hanya ditampilkan di daftar milik Admin, bukan di modal Camat/Kasubag (read-only)
+            const showDelete = containerId === 'adminKetidakhadiranModalBody';
+
             let records = [...ketidakhadiran];
             const term = (filterNama || '').trim().toLowerCase();
 
@@ -1543,7 +1546,10 @@
                     <div class="bg-white p-3.5 rounded-2xl border border-slate-100 shadow-xs">
                         <div class="flex justify-between items-start mb-1 gap-2">
                             <h5 class="text-xs font-extrabold text-slate-800">${namaEmp}</h5>
-                            <span class="text-[10px] font-black bg-indigo-100 text-indigo-600 px-2.5 py-1 rounded-full whitespace-nowrap flex-shrink-0">${k.jenisDokumen}</span>
+                            <div class="flex items-center gap-1.5 flex-shrink-0">
+                                <span class="text-[10px] font-black bg-indigo-100 text-indigo-600 px-2.5 py-1 rounded-full whitespace-nowrap">${k.jenisDokumen}</span>
+                                ${showDelete ? `<button onclick="hapusKetidakhadiran(${k.id})" class="text-rose-500 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 w-7 h-7 rounded-lg flex items-center justify-center transition-all"><i class="fa-solid fa-trash text-[10px]"></i></button>` : ''}
+                            </div>
                         </div>
                         <p class="text-xs font-bold text-slate-600">${formatTanggalIndo(k.tanggalMulai)} s/d ${formatTanggalIndo(k.tanggalSelesai)} (${k.jumlahHari} hari)</p>
                         <p class="text-[10px] text-slate-400 font-semibold mt-1">${k.alasan}</p>
@@ -1556,6 +1562,27 @@
         function filterKetidakhadiranList(inputId, containerId) {
             const input = document.getElementById(inputId);
             renderKetidakhadiranGlobalList(containerId, input ? input.value : '');
+        }
+
+        // Admin menghapus/mereset satu data ketidakhadiran (tidak tersedia untuk Camat/Kasubag)
+        function hapusKetidakhadiran(id) {
+            if (!confirm("Hapus data ketidakhadiran ini? Tindakan ini tidak bisa dibatalkan.")) return;
+
+            ketidakhadiran = ketidakhadiran.filter(k => k.id !== id);
+            localStorage.setItem('tutuyan_pwa_ketidakhadiran', JSON.stringify(ketidakhadiran));
+
+            if (isOnline) {
+                database.ref('ketidakhadiran/' + id).remove();
+            }
+
+            const adminFilterInput = document.getElementById('adminKetidakhadiranFilterNama');
+            renderKetidakhadiranGlobalList('adminKetidakhadiranModalBody', adminFilterInput ? adminFilterInput.value : '');
+
+            // Kalender juga ikut diperbarui karena datanya berubah
+            const kalenderMonthSelect = document.getElementById('adminKetidakhadiranKalenderMonth');
+            if (kalenderMonthSelect) {
+                renderKetidakhadiranKalender('adminKetidakhadiranKalenderMonth', 'adminKetidakhadiranKalenderGrid', 'adminKetidakhadiranKalenderDetail');
+            }
         }
 
         // ===== FITUR: TAMPILAN KALENDER KETIDAKHADIRAN =====
