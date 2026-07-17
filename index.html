@@ -246,6 +246,7 @@
                 </div>
 
                 <div id="adminKetidakhadiranViewList" class="space-y-2">
+                    <input type="text" id="adminKetidakhadiranFilterNama" oninput="filterKetidakhadiranList('adminKetidakhadiranFilterNama','adminKetidakhadiranModalBody')" placeholder="Cari nama pegawai..." class="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm font-semibold outline-none focus:ring-2 focus:ring-indigo-500 mb-2">
                     <div id="adminKetidakhadiranModalBody" class="space-y-2">
                         <!-- Diisi via JS -->
                     </div>
@@ -508,6 +509,7 @@
 
             <div class="overflow-y-auto pr-1">
                 <div id="ketidakhadiranViewList" class="space-y-2">
+                    <input type="text" id="ketidakhadiranFilterNama" oninput="filterKetidakhadiranList('ketidakhadiranFilterNama','ketidakhadiranModalBody')" placeholder="Cari nama pegawai..." class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm font-semibold outline-none focus:ring-2 focus:ring-indigo-500 mb-2">
                     <div id="ketidakhadiranModalBody" class="space-y-2">
                         <!-- Diisi via JS -->
                     </div>
@@ -1508,16 +1510,27 @@
         }
 
         // Menampilkan riwayat ketidakhadiran SELURUH pegawai (dipakai di dashboard Camat, Kasubag, dan Admin)
-        function renderKetidakhadiranGlobalList(containerId) {
+        // filterNama (opsional): kalau diisi, hanya tampilkan record milik pegawai yang namanya cocok (case-insensitive)
+        function renderKetidakhadiranGlobalList(containerId, filterNama) {
             const container = document.getElementById(containerId);
             if (!container) return;
 
-            const records = [...ketidakhadiran].sort((a, b) => new Date(b.tanggalMulai) - new Date(a.tanggalMulai));
+            let records = [...ketidakhadiran];
+            const term = (filterNama || '').trim().toLowerCase();
+
+            if (term !== '') {
+                records = records.filter(k => {
+                    const emp = employees.find(e => e.id === k.empId);
+                    return emp && emp.name.toLowerCase().includes(term);
+                });
+            }
+
+            records.sort((a, b) => new Date(b.tanggalMulai) - new Date(a.tanggalMulai));
 
             if (records.length === 0) {
                 container.innerHTML = `
                     <div class="text-center py-8 px-4 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
-                        <p class="text-xs font-bold text-slate-400">Belum ada data ketidakhadiran pegawai.</p>
+                        <p class="text-xs font-bold text-slate-400">${term !== '' ? 'Tidak ada data yang cocok dengan pencarian.' : 'Belum ada data ketidakhadiran pegawai.'}</p>
                     </div>
                 `;
                 return;
@@ -1537,6 +1550,12 @@
                     </div>
                 `;
             }).join('');
+        }
+
+        // Dipanggil oleh input pencarian nama di tampilan Daftar (Camat/Kasubag/Admin)
+        function filterKetidakhadiranList(inputId, containerId) {
+            const input = document.getElementById(inputId);
+            renderKetidakhadiranGlobalList(containerId, input ? input.value : '');
         }
 
         // ===== FITUR: TAMPILAN KALENDER KETIDAKHADIRAN =====
@@ -1680,6 +1699,8 @@
 
         // Modal Ketidakhadiran Pegawai (dipakai oleh dashboard Camat & Kasubag)
         function openKetidakhadiranModal() {
+            const filterInput = document.getElementById('ketidakhadiranFilterNama');
+            if (filterInput) filterInput.value = '';
             renderKetidakhadiranGlobalList('ketidakhadiranModalBody');
             initKetidakhadiranKalender('ketidakhadiranKalenderMonth', 'ketidakhadiranKalenderGrid', 'ketidakhadiranKalenderDetail');
             switchKetidakhadiranView('list', 'ketidakhadiran');
@@ -1873,6 +1894,18 @@
         // Mengirim pesan WhatsApp nyata via Fonnte API.
         // kategori: 'penilaian' -> pakai daftar nomor Notifikasi Penilaian Kinerja
         //           'ketidakhadiran' -> pakai daftar nomor/grup Notifikasi Ketidakhadiran
+        // Mengirim pesan WhatsApp nyata via Fonnte API.
+        // kategori: 'penilaian' -> pakai daftar nomor Notifikasi Penilaian Kinerja
+        //           'ketidakhadiran' -> pakai daftar nomor/grup Notifikasi Ketidakhadiran
+        // Perbaikan: kalau ada lebih dari satu nomor tujuan, pesan dikirim SATU PER SATU
+        // (bukan digabung dalam satu request) dengan jeda minimal 15 detik antar nomor,
+        // supaya tidak terkesan spam/flooding dari sisi Fonnte/WhatsApp.
+        const JEDA_ANTAR_NOMOR_WA_MS = 15000;
+
+        function tunggu(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
+
         async function sendWhatsAppNotification(message, kategori) {
             const waCfg = config.wa || {};
             const token = (waCfg.token || '').trim();
@@ -1885,27 +1918,36 @@
                 return;
             }
 
-            try {
-                const formData = new FormData();
-                formData.append('target', numbers.join(','));
-                formData.append('message', message);
-                formData.append('countryCode', '62');
+            for (let i = 0; i < numbers.length; i++) {
+                const nomor = numbers[i];
 
-                const response = await fetch('https://api.fonnte.com/send', {
-                    method: 'POST',
-                    mode: 'cors',
-                    headers: { 'Authorization': token },
-                    body: formData
-                });
+                try {
+                    const formData = new FormData();
+                    formData.append('target', nomor);
+                    formData.append('message', message);
+                    formData.append('countryCode', '62');
 
-                const result = await response.json();
-                if (!result.status) {
-                    console.error('[Notifikasi WA] Gagal mengirim:', result);
-                } else {
-                    console.log('[Notifikasi WA] Berhasil dikirim ke:', numbers.join(', '));
+                    const response = await fetch('https://api.fonnte.com/send', {
+                        method: 'POST',
+                        mode: 'cors',
+                        headers: { 'Authorization': token },
+                        body: formData
+                    });
+
+                    const result = await response.json();
+                    if (!result.status) {
+                        console.error(`[Notifikasi WA] Gagal mengirim ke ${nomor}:`, result);
+                    } else {
+                        console.log(`[Notifikasi WA] Berhasil dikirim ke ${nomor}`);
+                    }
+                } catch (err) {
+                    console.error(`[Notifikasi WA] Terjadi kesalahan saat mengirim ke ${nomor}:`, err);
                 }
-            } catch (err) {
-                console.error('[Notifikasi WA] Terjadi kesalahan saat mengirim:', err);
+
+                // Jeda minimal 15 detik sebelum mengirim ke nomor berikutnya (kecuali ini nomor terakhir)
+                if (i < numbers.length - 1) {
+                    await tunggu(JEDA_ANTAR_NOMOR_WA_MS);
+                }
             }
         }
 
@@ -2108,6 +2150,8 @@
             } else if (tab === 'notifikasi') {
                 renderWaSettings();
             } else if (tab === 'ketidakhadiran') {
+                const adminFilterInput = document.getElementById('adminKetidakhadiranFilterNama');
+                if (adminFilterInput) adminFilterInput.value = '';
                 renderKetidakhadiranGlobalList('adminKetidakhadiranModalBody');
                 initKetidakhadiranKalender('adminKetidakhadiranKalenderMonth', 'adminKetidakhadiranKalenderGrid', 'adminKetidakhadiranKalenderDetail');
                 switchKetidakhadiranView('list', 'adminKetidakhadiran');
@@ -2258,7 +2302,8 @@
             } else if (currentAdminSubTab === 'notifikasi') {
                 renderWaSettings();
             } else if (currentAdminSubTab === 'ketidakhadiran') {
-                renderKetidakhadiranGlobalList('adminKetidakhadiranModalBody');
+                const adminFilterInputPersist = document.getElementById('adminKetidakhadiranFilterNama');
+                renderKetidakhadiranGlobalList('adminKetidakhadiranModalBody', adminFilterInputPersist ? adminFilterInputPersist.value : '');
                 initKetidakhadiranKalender('adminKetidakhadiranKalenderMonth', 'adminKetidakhadiranKalenderGrid', 'adminKetidakhadiranKalenderDetail');
             }
 
