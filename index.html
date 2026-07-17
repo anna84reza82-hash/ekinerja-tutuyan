@@ -62,7 +62,7 @@
                     <input type="password" id="loginPin" placeholder="••••••" maxlength="6" class="w-full bg-slate-800/80 border border-slate-700 rounded-2xl px-4 py-3.5 text-center text-xl tracking-[0.5em] font-bold text-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all">
                 </div>
 
-                <button onclick="handleLogin()" class="w-full bg-gradient-to-r from-indigo-500 to-violet-600 hover:from-indigo-600 hover:to-violet-700 text-white font-bold py-4 rounded-2xl shadow-lg shadow-indigo-500/20 active:scale-95 transition-transform text-sm">
+                <button onclick="handleLogin()" id="loginSubmitBtn" class="w-full bg-gradient-to-r from-indigo-500 to-violet-600 hover:from-indigo-600 hover:to-violet-700 text-white font-bold py-4 rounded-2xl shadow-lg shadow-indigo-500/20 active:scale-95 transition-transform text-sm">
                     Masuk Sekarang
                 </button>
             </div>
@@ -203,15 +203,32 @@
 
                 <div class="bg-white p-5 rounded-3xl border border-slate-100 shadow-xs space-y-4">
                     <h4 class="font-black text-slate-800 text-xs uppercase tracking-wider flex items-center gap-1.5 text-indigo-600">
-                        <i class="fa-solid fa-address-book text-[10px]"></i> Nomor Penerima Notifikasi
+                        <i class="fa-solid fa-clipboard-check text-[10px]"></i> Notifikasi Penilaian Kinerja
                     </h4>
+                    <p class="text-[9px] text-slate-400 font-semibold -mt-2 leading-relaxed">Terkirim ke nomor di bawah ini saat Camat menyelesaikan/mengedit penilaian kinerja pegawai (biasanya nomor Kasubag Kepegawaian).</p>
                     <div class="flex gap-2">
-                        <input type="tel" id="newWaNumber" placeholder="Contoh: 081234567890" class="flex-1 min-w-0 bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm font-semibold outline-none focus:ring-2 focus:ring-indigo-500">
-                        <button onclick="addWaNumber()" class="w-11 h-11 flex-shrink-0 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl flex items-center justify-center active:scale-95 transition-transform">
+                        <input type="tel" id="newWaNumberPenilaian" placeholder="Contoh: 081234567890" class="flex-1 min-w-0 bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm font-semibold outline-none focus:ring-2 focus:ring-indigo-500">
+                        <button onclick="addWaNumber('penilaian')" class="w-11 h-11 flex-shrink-0 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl flex items-center justify-center active:scale-95 transition-transform">
                             <i class="fa-solid fa-plus"></i>
                         </button>
                     </div>
-                    <div id="waNumberListContainer" class="space-y-2">
+                    <div id="waNumberListPenilaian" class="space-y-2">
+                        <!-- Diisi via JS -->
+                    </div>
+                </div>
+
+                <div class="bg-white p-5 rounded-3xl border border-slate-100 shadow-xs space-y-4">
+                    <h4 class="font-black text-slate-800 text-xs uppercase tracking-wider flex items-center gap-1.5 text-amber-600">
+                        <i class="fa-solid fa-calendar-xmark text-[10px]"></i> Notifikasi Ketidakhadiran
+                    </h4>
+                    <p class="text-[9px] text-slate-400 font-semibold -mt-2 leading-relaxed">Terkirim ke nomor/grup di bawah ini saat pegawai mengajukan pemberitahuan ketidakhadiran (biasanya grup WhatsApp kantor). Bisa diisi nomor pribadi (08xx/62xx) atau ID Grup WhatsApp.</p>
+                    <div class="flex gap-2">
+                        <input type="text" id="newWaNumberKetidakhadiran" placeholder="Nomor 08xx atau ID Grup WA" class="flex-1 min-w-0 bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm font-semibold outline-none focus:ring-2 focus:ring-indigo-500">
+                        <button onclick="addWaNumber('ketidakhadiran')" class="w-11 h-11 flex-shrink-0 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl flex items-center justify-center active:scale-95 transition-transform">
+                            <i class="fa-solid fa-plus"></i>
+                        </button>
+                    </div>
+                    <div id="waNumberListKetidakhadiran" class="space-y-2">
                         <!-- Diisi via JS -->
                     </div>
                 </div>
@@ -524,13 +541,27 @@
         let config = JSON.parse(localStorage.getItem('tutuyan_pwa_config')) || {
             pins: { camat: "123456", kasubag: "123456", admin: "123456" }
         };
-        // Fitur Notifikasi WA (Fonnte): normalisasi agar config lama (belum punya field wa) tetap aman
-        if (!config.wa) {
-            config.wa = { token: "", numbers: [] };
+        // Fitur Notifikasi WA (Fonnte): normalisasi agar config lama tetap aman.
+        // Perbaikan: daftar nomor sekarang dipisah menjadi 2 kategori terpisah —
+        // "numbersPenilaian" (notifikasi penilaian kinerja, ke Kasubag) dan
+        // "numbersKetidakhadiran" (notifikasi ketidakhadiran, ke grup WA kantor).
+        // Data lama (field "numbers" tunggal) dimigrasikan ke kedua kategori sebagai nilai awal.
+        function normalizeConfigWa(cfg) {
+            if (!cfg.wa) {
+                cfg.wa = { token: "", numbersPenilaian: [], numbersKetidakhadiran: [] };
+                return cfg;
+            }
+            const legacyNumbers = Array.isArray(cfg.wa.numbers) ? cfg.wa.numbers : [];
+            if (!Array.isArray(cfg.wa.numbersPenilaian)) {
+                cfg.wa.numbersPenilaian = [...legacyNumbers];
+            }
+            if (!Array.isArray(cfg.wa.numbersKetidakhadiran)) {
+                cfg.wa.numbersKetidakhadiran = [...legacyNumbers];
+            }
+            delete cfg.wa.numbers;
+            return cfg;
         }
-        if (!Array.isArray(config.wa.numbers)) {
-            config.wa.numbers = [];
-        }
+        config = normalizeConfigWa(config);
 
         let waTokenVisible = false;
 
@@ -634,9 +665,7 @@
                     database.ref('config').on('value', (snapshot) => {
                         const data = snapshot.val();
                         if (data) {
-                            config = data;
-                            if (!config.wa) config.wa = { token: "", numbers: [] };
-                            if (!Array.isArray(config.wa.numbers)) config.wa.numbers = [];
+                            config = normalizeConfigWa(data);
                             localStorage.setItem('tutuyan_pwa_config', JSON.stringify(config));
                         } else {
                             database.ref('config').set(config);
@@ -679,7 +708,35 @@
             }
         }
 
-        function handleLogin() {
+        async function handleLogin() {
+            const loginBtn = document.getElementById('loginSubmitBtn');
+            const originalBtnText = loginBtn ? loginBtn.textContent : '';
+
+            if (loginBtn) {
+                loginBtn.disabled = true;
+                loginBtn.textContent = "Memeriksa pembaruan aplikasi...";
+            }
+
+            try {
+                const adaUpdate = await checkForAppUpdate();
+                if (adaUpdate) {
+                    if (loginBtn) loginBtn.textContent = "Memperbarui aplikasi...";
+                    await clearOldCachesAndReload();
+                    return; // window.location.reload() akan menghentikan eksekusi lebih lanjut
+                }
+            } catch (err) {
+                console.warn('[Update Check] Gagal memeriksa pembaruan, lanjut login seperti biasa:', err);
+            }
+
+            if (loginBtn) {
+                loginBtn.disabled = false;
+                loginBtn.textContent = originalBtnText;
+            }
+
+            proceedWithLogin();
+        }
+
+        function proceedWithLogin() {
             const role = document.getElementById('loginRole').value;
 
             // Akun "Pegawai" tidak butuh PIN di layar login ini — PIN individual
@@ -709,6 +766,57 @@
             } else {
                 alert("PIN Salah! Gunakan " + config.pins[role] + " untuk peran ini.");
             }
+        }
+
+        // ===== FITUR: CEK & TERAPKAN UPDATE APLIKASI SAAT LOGIN =====
+        // Memaksa browser memeriksa apakah ada versi sw.js baru di server. Karena sw.js sudah
+        // memakai self.skipWaiting() + self.clients.claim(), begitu versi baru terdeteksi ia akan
+        // langsung ter-install & aktif — di sini kita tunggu sampai proses itu selesai.
+        async function checkForAppUpdate() {
+            if (!('serviceWorker' in navigator)) return false;
+
+            try {
+                const registration = await navigator.serviceWorker.getRegistration();
+                if (!registration) return false;
+
+                // Paksa cek ke server apakah sw.js berbeda dari yang tersimpan
+                await registration.update();
+
+                if (registration.waiting) {
+                    return true;
+                }
+
+                if (registration.installing) {
+                    return await new Promise((resolve) => {
+                        const worker = registration.installing;
+                        const timeout = setTimeout(() => resolve(false), 4000);
+                        worker.addEventListener('statechange', function () {
+                            if (this.state === 'activated') {
+                                clearTimeout(timeout);
+                                resolve(true);
+                            }
+                        });
+                    });
+                }
+
+                return false;
+            } catch (err) {
+                console.warn('[Update Check] Gagal memeriksa pembaruan:', err);
+                return false;
+            }
+        }
+
+        // Menghapus seluruh cache lama lalu memuat ulang halaman agar versi terbaru langsung dipakai
+        async function clearOldCachesAndReload() {
+            try {
+                if ('caches' in window) {
+                    const cacheKeys = await caches.keys();
+                    await Promise.all(cacheKeys.map(key => caches.delete(key)));
+                }
+            } catch (err) {
+                console.warn('[Update] Gagal menghapus cache lama:', err);
+            }
+            window.location.reload();
         }
 
         function handleLogout() {
@@ -1287,7 +1395,7 @@
             // Catatan: alasan ketidakhadiran SENGAJA tidak disertakan di pesan WA demi privasi pegawai —
             // pesan dibuat generik (permohonan izin), rincian alasan hanya terlihat di dalam aplikasi.
             const pesanWA = `Yth. Ibu Camat, saya *${emp.name}* (${emp.jabatan}) memohon izin untuk belum masuk kantor dari tanggal *${formatTanggalIndo(tglMulai)}* hingga tanggal *${formatTanggalIndo(tglSelesai)}* (${jumlahHariBaru} hari).`;
-            sendWhatsAppNotification(pesanWA);
+            sendWhatsAppNotification(pesanWA, 'ketidakhadiran');
 
             alert("Pemberitahuan ketidakhadiran berhasil dikirim.");
 
@@ -1526,11 +1634,17 @@
             renderCamatView();
 
             // NOTIFIKASI WHATSAPP CONDITIONS
+            const totalAssessmentBulanIni = assessments.filter(a => a.month === month).length;
+            const semuaPegawaiSudahLengkap = totalAssessmentBulanIni === employees.length;
+
             if (isEdit) {
-                triggerWaNotification(`Camat telah mengedit data penilaian atas nama *${emp.name}* (Jabatan: ${emp.jabatan}) untuk periode *${month}*.`);
+                // Perbaikan: notifikasi edit HANYA terkirim jika seluruh pegawai (semua) sudah
+                // pernah dinilai di bulan ini. Kalau belum lengkap, notifikasi edit tidak dikirim.
+                if (semuaPegawaiSudahLengkap) {
+                    triggerWaNotification(`Camat telah mengedit data penilaian atas nama *${emp.name}* (Jabatan: ${emp.jabatan}) untuk periode *${month}*.`);
+                }
             } else {
-                const countDoneThisMonth = assessments.filter(a => a.month === month).length;
-                if (countDoneThisMonth === employees.length) {
+                if (semuaPegawaiSudahLengkap) {
                     triggerWaNotification(`PEMBERITAHUAN: Camat telah *menyelesaikan & menyimpan semua penilaian* untuk seluruh pegawai (${employees.length} Orang) pada periode *${month}*.`);
                 }
             }
@@ -1539,20 +1653,25 @@
         function triggerWaNotification(message) {
             // Perbaikan: toast mock/visual di dalam aplikasi sudah dihapus.
             // Fungsi ini sekarang murni memicu pengiriman WhatsApp sungguhan via Fonnte.
+            // Notifikasi penilaian kinerja selalu memakai kategori 'penilaian' (nomor Kasubag).
             const appLink = window.location.href;
             const fullMessage = `${message}\n\nSilahkan periksa di :\n${appLink}\ndengan menggunakan akun Kasubag Kepegawaian`;
 
-            sendWhatsAppNotification(fullMessage);
+            sendWhatsAppNotification(fullMessage, 'penilaian');
         }
 
-        // Mengirim pesan WhatsApp nyata via Fonnte API ke semua nomor terdaftar
-        async function sendWhatsAppNotification(message) {
+        // Mengirim pesan WhatsApp nyata via Fonnte API.
+        // kategori: 'penilaian' -> pakai daftar nomor Notifikasi Penilaian Kinerja
+        //           'ketidakhadiran' -> pakai daftar nomor/grup Notifikasi Ketidakhadiran
+        async function sendWhatsAppNotification(message, kategori) {
             const waCfg = config.wa || {};
             const token = (waCfg.token || '').trim();
-            const numbers = waCfg.numbers || [];
+            const numbers = kategori === 'ketidakhadiran'
+                ? (waCfg.numbersKetidakhadiran || [])
+                : (waCfg.numbersPenilaian || []);
 
             if (!token || numbers.length === 0) {
-                console.warn('[Notifikasi WA] Belum dikirim: Token Fonnte atau daftar nomor penerima belum diatur di menu Admin > Notifikasi WA.');
+                console.warn(`[Notifikasi WA] Belum dikirim (kategori: ${kategori}): Token Fonnte atau daftar nomor penerima belum diatur di menu Admin > Notifikasi WA.`);
                 return;
             }
 
@@ -1785,22 +1904,27 @@
 
         // ===== KELOLA NOTIFIKASI WHATSAPP (FONNTE) =====
         function renderWaSettings() {
-            if (!config.wa) config.wa = { token: "", numbers: [] };
+            if (!config.wa) config.wa = { token: "", numbersPenilaian: [], numbersKetidakhadiran: [] };
             const tokenInput = document.getElementById('waTokenInput');
             if (tokenInput) tokenInput.value = config.wa.token || '';
-            renderWaNumberList();
+            renderWaNumberList('penilaian');
+            renderWaNumberList('ketidakhadiran');
         }
 
-        function renderWaNumberList() {
-            const container = document.getElementById('waNumberListContainer');
+        // kategori: 'penilaian' atau 'ketidakhadiran'
+        function renderWaNumberList(kategori) {
+            const containerId = kategori === 'ketidakhadiran' ? 'waNumberListKetidakhadiran' : 'waNumberListPenilaian';
+            const container = document.getElementById(containerId);
             if (!container) return;
 
-            const numbers = (config.wa && config.wa.numbers) || [];
+            const numbers = kategori === 'ketidakhadiran'
+                ? ((config.wa && config.wa.numbersKetidakhadiran) || [])
+                : ((config.wa && config.wa.numbersPenilaian) || []);
 
             if (numbers.length === 0) {
                 container.innerHTML = `
                     <div class="text-center py-6 px-4 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
-                        <p class="text-[10px] font-bold text-slate-400">Belum ada nomor WhatsApp terdaftar.</p>
+                        <p class="text-[10px] font-bold text-slate-400">Belum ada nomor terdaftar.</p>
                     </div>
                 `;
                 return;
@@ -1809,47 +1933,56 @@
             container.innerHTML = numbers.map((num, idx) => `
                 <div class="flex justify-between items-center bg-slate-50 p-3 rounded-2xl">
                     <span class="text-sm font-extrabold text-slate-700 font-mono">${num}</span>
-                    <button onclick="removeWaNumber(${idx})" class="text-rose-500 hover:text-rose-700 text-xs font-bold bg-rose-100 hover:bg-rose-200 px-3 py-1.5 rounded-xl">
+                    <button onclick="removeWaNumber(${idx}, '${kategori}')" class="text-rose-500 hover:text-rose-700 text-xs font-bold bg-rose-100 hover:bg-rose-200 px-3 py-1.5 rounded-xl">
                         <i class="fa-solid fa-trash"></i>
                     </button>
                 </div>
             `).join('');
         }
 
-        function addWaNumber() {
-            const input = document.getElementById('newWaNumber');
+        // kategori: 'penilaian' -> hanya boleh nomor pribadi (08xx/62xx)
+        //           'ketidakhadiran' -> boleh nomor pribadi ATAU ID Grup WhatsApp (angka panjang)
+        function addWaNumber(kategori) {
+            const inputId = kategori === 'ketidakhadiran' ? 'newWaNumberKetidakhadiran' : 'newWaNumberPenilaian';
+            const input = document.getElementById(inputId);
             let num = input.value.trim().replace(/[\s\-()]/g, ''); // buang spasi/strip/kurung
 
-            // Validasi: hanya boleh format 08xxxxxxxxxx atau 62xxxxxxxxxx (8-15 digit setelah awalan)
             const validLokal = /^0[0-9]{8,14}$/.test(num);
             const validInternasional = /^62[0-9]{8,14}$/.test(num);
+            const validGroupId = /^\d{5,25}$/.test(num);
 
-            if (!validLokal && !validInternasional) {
-                alert("Format nomor tidak valid. Gunakan format 08xxxxxxxxxx atau 62xxxxxxxxxx (hanya angka).");
-                return;
-            }
-
-            // Normalisasi ke format 62xxxx (format yang dibutuhkan Fonnte)
             if (validLokal) {
                 num = '62' + num.substring(1);
-            }
-
-            if (!config.wa) config.wa = { token: "", numbers: [] };
-            if (!Array.isArray(config.wa.numbers)) config.wa.numbers = [];
-
-            if (config.wa.numbers.includes(num)) {
-                alert("Nomor ini sudah terdaftar di daftar penerima notifikasi.");
+            } else if (validInternasional) {
+                // sudah dalam format 62xxxx, biarkan apa adanya
+            } else if (kategori === 'ketidakhadiran' && validGroupId) {
+                // dianggap ID Grup WhatsApp, biarkan apa adanya
+            } else {
+                const pesanFormat = kategori === 'ketidakhadiran'
+                    ? "Format tidak valid. Gunakan nomor 08xxxxxxxxxx / 62xxxxxxxxxx, atau ID Grup WhatsApp (angka saja)."
+                    : "Format nomor tidak valid. Gunakan format 08xxxxxxxxxx atau 62xxxxxxxxxx (hanya angka).";
+                alert(pesanFormat);
                 return;
             }
 
-            config.wa.numbers.push(num);
+            if (!config.wa) config.wa = { token: "", numbersPenilaian: [], numbersKetidakhadiran: [] };
+            const key = kategori === 'ketidakhadiran' ? 'numbersKetidakhadiran' : 'numbersPenilaian';
+            if (!Array.isArray(config.wa[key])) config.wa[key] = [];
+
+            if (config.wa[key].includes(num)) {
+                alert("Nomor/ID ini sudah terdaftar di daftar ini.");
+                return;
+            }
+
+            config.wa[key].push(num);
             saveWaConfig();
             input.value = '';
         }
 
-        function removeWaNumber(idx) {
-            if (!confirm("Hapus nomor ini dari daftar penerima notifikasi WhatsApp?")) return;
-            config.wa.numbers.splice(idx, 1);
+        function removeWaNumber(idx, kategori) {
+            if (!confirm("Hapus nomor ini dari daftar?")) return;
+            const key = kategori === 'ketidakhadiran' ? 'numbersKetidakhadiran' : 'numbersPenilaian';
+            config.wa[key].splice(idx, 1);
             saveWaConfig();
         }
 
@@ -1863,7 +1996,7 @@
 
         function saveWaToken() {
             const tokenInput = document.getElementById('waTokenInput');
-            if (!config.wa) config.wa = { token: "", numbers: [] };
+            if (!config.wa) config.wa = { token: "", numbersPenilaian: [], numbersKetidakhadiran: [] };
             config.wa.token = tokenInput.value.trim();
             saveWaConfig();
             alert("Token Fonnte berhasil disimpan.");
@@ -1875,7 +2008,8 @@
             if (isOnline) {
                 database.ref('config').set(config);
             } else {
-                renderWaNumberList();
+                renderWaNumberList('penilaian');
+                renderWaNumberList('ketidakhadiran');
             }
         }
 
