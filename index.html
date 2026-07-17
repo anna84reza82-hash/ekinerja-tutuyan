@@ -154,6 +154,8 @@
                 </select>
             </div>
 
+            <div id="lockMonthBarContainer"></div>
+
             <!-- Tab Buttons inside Admin View to switch between Pegawai & Nilai -->
             <div class="flex bg-slate-100 p-1.5 rounded-2xl">
                 <button onclick="switchAdminSubTab('pegawai')" id="adminTabPegawai" class="flex-1 text-center py-2.5 rounded-xl text-xs font-extrabold bg-white text-indigo-600 shadow-sm transition-all">
@@ -583,6 +585,8 @@
 
         let assessments = JSON.parse(localStorage.getItem('tutuyan_pwa_assessments')) || [];
         let ketidakhadiran = JSON.parse(localStorage.getItem('tutuyan_pwa_ketidakhadiran')) || [];
+        // Fitur "Kunci Bulan": daftar label bulan (mis. "Juli 2026") yang sudah dikunci Admin
+        let lockedMonths = JSON.parse(localStorage.getItem('tutuyan_pwa_lockedmonths')) || [];
         let config = JSON.parse(localStorage.getItem('tutuyan_pwa_config')) || {
             pins: { camat: "123456", kasubag: "123456", admin: "123456" }
         };
@@ -703,6 +707,14 @@
                         const data = snapshot.val();
                         ketidakhadiran = data ? Object.values(data) : [];
                         localStorage.setItem('tutuyan_pwa_ketidakhadiran', JSON.stringify(ketidakhadiran));
+                        refreshActiveView();
+                    });
+
+                    // Sinkronisasi data Bulan Terkunci secara Real-Time
+                    database.ref('lockedMonths').on('value', (snapshot) => {
+                        const data = snapshot.val();
+                        lockedMonths = data ? Object.values(data) : [];
+                        localStorage.setItem('tutuyan_pwa_lockedmonths', JSON.stringify(lockedMonths));
                         refreshActiveView();
                     });
 
@@ -1118,6 +1130,11 @@
                 document.getElementById('pegawaiPinState').classList.add('hidden');
                 document.getElementById('pegawaiDashboardState').classList.remove('hidden');
                 renderPegawaiDashboardContent(emp.id);
+
+                // Perbaikan: ingatkan pegawai untuk mengganti PIN kalau masih memakai PIN standar bawaan
+                if (!emp.pin || emp.pin === '123456') {
+                    alert("Anda masih menggunakan PIN standar bawaan (123456). Demi keamanan akun Anda, segera ganti PIN lewat tombol kunci (🔑) di pojok kanan atas.");
+                }
             } else {
                 alert("PIN salah. Silakan coba lagi.");
             }
@@ -1178,6 +1195,19 @@
                     <div class="absolute -right-4 -bottom-6 text-8xl opacity-10"><i class="fa-solid fa-user"></i></div>
                 </div>
 
+                ${(!emp.pin || emp.pin === '123456') ? `
+                    <div class="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-start gap-3">
+                        <i class="fa-solid fa-triangle-exclamation text-amber-500 mt-0.5"></i>
+                        <div class="flex-1">
+                            <p class="text-xs font-bold text-amber-700">Anda masih menggunakan PIN standar bawaan (123456).</p>
+                            <p class="text-[10px] text-amber-600 font-semibold mt-1">Demi keamanan akun Anda, disarankan segera menggantinya.</p>
+                            <button onclick="openPegawaiChangePinModal()" class="mt-2 bg-amber-500 hover:bg-amber-600 text-white text-[10px] font-bold px-3 py-1.5 rounded-lg transition-all">
+                                Ganti PIN Sekarang
+                            </button>
+                        </div>
+                    </div>
+                ` : ''}
+
                 <div class="flex bg-slate-100 p-1.5 rounded-2xl">
                     <button onclick="switchPegawaiTab('penilaian')" id="pegawaiTabBtnPenilaian" class="flex-1 text-center py-2.5 rounded-xl text-xs font-extrabold bg-white text-indigo-600 shadow-sm transition-all">
                         Penilaian & TKD
@@ -1205,6 +1235,8 @@
                 </div>
 
                 <div id="pegawaiTabKetidakhadiran" class="space-y-4 hidden">
+                    <div id="jatahKetidakhadiranBarContainer"></div>
+
                     <div class="bg-white p-5 rounded-3xl border border-slate-100 shadow-xs space-y-3">
                         <h4 class="font-black text-slate-800 text-xs uppercase tracking-wider flex items-center gap-1.5 text-indigo-600">
                             <i class="fa-solid fa-calendar-xmark text-sm"></i> Ajukan Pemberitahuan Ketidakhadiran
@@ -1241,6 +1273,7 @@
             populateMonthSelect('pegawaiFilterMonth', true);
             renderPegawaiMonthDetail(empId);
             renderPegawaiKetidakhadiranList(empId);
+            renderJatahKetidakhadiranBar(empId);
         }
 
         // Beralih antara tab "Penilaian & TKD" dan "Ketidakhadiran" di dashboard personal Pegawai
@@ -1342,6 +1375,59 @@
             };
         }
 
+        // ===== FITUR: INDIKATOR SISA JATAH HARI KETIDAKHADIRAN =====
+        // Batas maksimal sebelum harus konsultasi Camat adalah 10 hari (lihat getStatusKetidakhadiran)
+        const BATAS_MAKSIMAL_KETIDAKHADIRAN = 10;
+
+        function buildJatahKetidakhadiranBarHTML(totalHari) {
+            const persen = Math.min((totalHari / BATAS_MAKSIMAL_KETIDAKHADIRAN) * 100, 100);
+
+            let warnaBar = 'bg-emerald-500';
+            let warnaTeks = 'text-slate-700';
+            if (totalHari > 10) {
+                warnaBar = 'bg-rose-600';
+                warnaTeks = 'text-rose-600';
+            } else if (totalHari > 7) {
+                warnaBar = 'bg-orange-500';
+                warnaTeks = 'text-orange-600';
+            } else if (totalHari > 5) {
+                warnaBar = 'bg-amber-500';
+                warnaTeks = 'text-amber-600';
+            }
+
+            return `
+                <div class="bg-white p-4 rounded-3xl border border-slate-100 shadow-xs space-y-2">
+                    <div class="flex justify-between items-center text-[10px] font-bold text-slate-500">
+                        <span>Jatah Ketidakhadiran Bulan Ini</span>
+                        <span class="${warnaTeks} font-black">${totalHari} / ${BATAS_MAKSIMAL_KETIDAKHADIRAN} hari</span>
+                    </div>
+                    <div class="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden relative">
+                        <div class="h-full ${warnaBar} rounded-full transition-all duration-300" style="width: ${persen}%"></div>
+                        <div class="absolute top-0 bottom-0 w-px bg-white/80" style="left: 50%"></div>
+                        <div class="absolute top-0 bottom-0 w-px bg-white/80" style="left: 70%"></div>
+                    </div>
+                    <div class="flex justify-between text-[8px] font-bold text-slate-400 uppercase">
+                        <span>SPT (0-5)</span>
+                        <span>Sakit (6-7)</span>
+                        <span>Izin (8-10)</span>
+                    </div>
+                </div>
+            `;
+        }
+
+        // overrideTotal (opsional): kalau diisi, tampilkan proyeksi total termasuk pengajuan yang
+        // sedang diketik (belum disimpan). Kalau kosong, tampilkan total yang sudah benar-benar tersimpan.
+        function renderJatahKetidakhadiranBar(empId, overrideTotal) {
+            const container = document.getElementById('jatahKetidakhadiranBarContainer');
+            if (!container) return;
+
+            const totalHari = typeof overrideTotal === 'number'
+                ? overrideTotal
+                : getTotalHariKetidakhadiranBulan(empId, getCurrentMonthLabel());
+
+            container.innerHTML = buildJatahKetidakhadiranBarHTML(totalHari);
+        }
+
         // Live preview: dipanggil setiap kali alasan/tanggal diubah, sebelum data dikirim
         function updateKetidakhadiranPreview() {
             const emp = employees.find(e => e.id === selectedPegawaiId);
@@ -1355,6 +1441,7 @@
             if (!tglMulai || !tglSelesai) {
                 preview.innerHTML = '';
                 btnSubmit.disabled = false;
+                renderJatahKetidakhadiranBar(emp.id); // kembali ke total tersimpan (tanpa proyeksi)
                 return;
             }
 
@@ -1382,6 +1469,9 @@
             const sudahAda = getTotalHariKetidakhadiranBulan(emp.id, bulanMulai);
             const total = sudahAda + jumlahHariBaru;
             const status = getStatusKetidakhadiran(total);
+
+            // Proyeksikan progress bar termasuk pengajuan yang sedang diketik (belum disimpan)
+            renderJatahKetidakhadiranBar(emp.id, total);
 
             let html = `
                 <div class="bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs font-bold text-slate-600 space-y-1.5">
@@ -1477,6 +1567,7 @@
             document.getElementById('btnSubmitKetidakhadiran').disabled = false;
 
             renderPegawaiKetidakhadiranList(emp.id);
+            renderJatahKetidakhadiranBar(emp.id);
         }
 
         // Menampilkan riwayat ketidakhadiran milik pegawai yang sedang login (tab "Ketidakhadiran" di dashboard personalnya)
@@ -1768,6 +1859,57 @@
             `;
         }
 
+        // ===== FITUR: KUNCI BULAN SETELAH LENGKAP =====
+        // Setelah Admin mengunci sebuah bulan, Camat tidak bisa lagi menyimpan/mengedit nilai,
+        // Kasubag tidak bisa lagi mengubah Potongan Kehadiran, dan Admin sendiri tidak bisa
+        // menghapus (Reset Nilai) untuk bulan itu — sampai Admin membuka kuncinya lagi.
+        function isMonthLocked(month) {
+            return lockedMonths.includes(month);
+        }
+
+        function toggleLockMonth(month) {
+            if (isMonthLocked(month)) {
+                if (!confirm(`Buka kunci bulan ${month}? Camat dan Kasubag akan bisa mengubah data lagi untuk bulan ini.`)) return;
+                lockedMonths = lockedMonths.filter(m => m !== month);
+            } else {
+                if (!confirm(`Kunci bulan ${month}? Setelah dikunci:\n- Camat tidak bisa mengedit/menyimpan nilai baru.\n- Kasubag tidak bisa mengubah Potongan Kehadiran.\n- Admin tidak bisa mereset nilai.\n\nSemua itu untuk bulan ${month} sampai Anda membuka kuncinya lagi.`)) return;
+                lockedMonths.push(month);
+            }
+
+            localStorage.setItem('tutuyan_pwa_lockedmonths', JSON.stringify(lockedMonths));
+
+            if (isOnline) {
+                database.ref('lockedMonths').set(lockedMonths);
+            } else {
+                renderAdminMonitoringNilai();
+                renderLockMonthBar();
+            }
+        }
+
+        // Menampilkan tombol Kunci/Buka Kunci untuk bulan yang sedang dipilih di header Admin
+        function renderLockMonthBar() {
+            const container = document.getElementById('lockMonthBarContainer');
+            const monthSelect = document.getElementById('adminFilterMonth');
+            if (!container || !monthSelect) return;
+
+            const month = monthSelect.value;
+            const locked = isMonthLocked(month);
+
+            if (locked) {
+                container.innerHTML = `
+                    <button onclick="toggleLockMonth('${month}')" class="w-full bg-rose-50 border border-rose-200 text-rose-700 font-bold py-3 rounded-2xl text-xs flex items-center justify-center gap-2 hover:bg-rose-100 transition-all">
+                        <i class="fa-solid fa-lock"></i> Bulan ${month} Terkunci — Klik untuk Buka Kunci
+                    </button>
+                `;
+            } else {
+                container.innerHTML = `
+                    <button onclick="toggleLockMonth('${month}')" class="w-full bg-white border border-slate-200 hover:border-indigo-300 text-slate-600 hover:text-indigo-600 font-bold py-3 rounded-2xl text-xs flex items-center justify-center gap-2 transition-all shadow-xs">
+                        <i class="fa-solid fa-lock-open"></i> Kunci Bulan ${month}
+                    </button>
+                `;
+            }
+        }
+
         // ===== FITUR: JUMLAH MAKSIMAL TKD DITERIMA =====
         // % Potongan Kinerja berdasarkan predikat penilaian (sesuai ketentuan TKD)
         function getPotonganKinerjaPercent(pred) {
@@ -1851,6 +1993,12 @@
         // Mengisi & Menyimpan Penilaian oleh Camat
         function saveSingleAssessment(empId) {
             const month = document.getElementById('evalMonth').value;
+
+            if (isMonthLocked(month)) {
+                alert(`Bulan ${month} sudah dikunci oleh Admin. Nilai tidak bisa diubah lagi untuk bulan ini.`);
+                return;
+            }
+
             const pred = document.getElementById(`pred_${empId}`).value;
 
             if (!pred) {
@@ -1984,6 +2132,14 @@
             const container = document.getElementById('camatCardContainer');
             container.innerHTML = "";
 
+            if (isMonthLocked(month)) {
+                container.innerHTML += `
+                    <div class="bg-rose-50 border border-rose-200 text-rose-700 font-bold py-3 px-4 rounded-2xl text-xs flex items-center gap-2">
+                        <i class="fa-solid fa-lock"></i> Bulan ${month} sudah dikunci oleh Admin. Nilai tidak bisa diubah sampai kuncinya dibuka.
+                    </div>
+                `;
+            }
+
             let countCompleted = 0;
 
             employees.forEach(emp => {
@@ -2053,10 +2209,18 @@
             const container = document.getElementById('kasubagCardContainer');
             container.innerHTML = "";
 
+            if (isMonthLocked(month)) {
+                container.innerHTML += `
+                    <div class="bg-rose-50 border border-rose-200 text-rose-700 font-bold py-3 px-4 rounded-2xl text-xs flex items-center gap-2">
+                        <i class="fa-solid fa-lock"></i> Bulan ${month} sudah dikunci oleh Admin. Potongan Kehadiran tidak bisa diubah sampai kuncinya dibuka.
+                    </div>
+                `;
+            }
+
             const monthData = assessments.filter(a => a.month === month);
 
             if (monthData.length === 0) {
-                container.innerHTML = `
+                container.innerHTML += `
                     <div class="text-center py-12 px-4 bg-white rounded-3xl border border-dashed border-slate-200">
                         <i class="fa-solid fa-folder-open text-4xl text-slate-300 mb-3"></i>
                         <p class="text-xs font-bold text-slate-400">Belum ada penilaian kinerja di bulan ${month}.</p>
@@ -2122,6 +2286,11 @@
 
         // Menyimpan Potongan Kehadiran (%) yang diinput Kasubag Kepegawaian untuk pegawai & bulan tertentu
         function saveKehadiran(empId, month) {
+            if (isMonthLocked(month)) {
+                alert(`Bulan ${month} sudah dikunci oleh Admin. Potongan Kehadiran tidak bisa diubah lagi untuk bulan ini.`);
+                return;
+            }
+
             const input = document.getElementById(`kehadiran_${empId}`);
             const raw = input.value.trim();
 
@@ -2298,6 +2467,8 @@
 
         // Tampilan Admin Utama
         function renderAdminView() {
+            renderLockMonthBar();
+
             const container = document.getElementById('adminPegawaiSection');
             container.innerHTML = "";
 
@@ -2390,6 +2561,10 @@
         }
 
         function deleteAssessment(empId, month) {
+            if (isMonthLocked(month)) {
+                alert(`Bulan ${month} sudah dikunci. Buka kunci bulan ini terlebih dahulu (di tab "Pantau Semua Nilai") sebelum bisa mereset nilai.`);
+                return;
+            }
             if (confirm("Apakah Anda yakin ingin menghapus/mereset nilai untuk pegawai ini di bulan " + month + "?")) {
                 assessments = assessments.filter(a => !(a.empId === empId && a.month === month));
                 localStorage.setItem('tutuyan_pwa_assessments', JSON.stringify(assessments));
