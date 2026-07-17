@@ -164,8 +164,9 @@
                 <button onclick="switchAdminSubTab('nilai')" id="adminTabNilai" class="flex-1 text-center py-2.5 rounded-xl text-xs font-extrabold text-slate-500 transition-all">
                     Pantau Semua Nilai
                 </button>
-                <button onclick="switchAdminSubTab('notifikasi')" id="adminTabNotifikasi" class="flex-1 text-center py-2.5 rounded-xl text-xs font-extrabold text-slate-500 transition-all">
+                <button onclick="switchAdminSubTab('notifikasi')" id="adminTabNotifikasi" class="flex-1 text-center py-2.5 rounded-xl text-xs font-extrabold text-slate-500 transition-all relative">
                     Notifikasi WA
+                    <span id="waFailBadge" class="hidden absolute -top-1 -right-1 w-4 h-4 bg-rose-500 text-white text-[8px] font-black rounded-full items-center justify-center border-2 border-white"></span>
                 </button>
                 <button onclick="switchAdminSubTab('ketidakhadiran')" id="adminTabKetidakhadiran" class="flex-1 text-center py-2.5 rounded-xl text-xs font-extrabold text-slate-500 transition-all">
                     Ketidakhadiran
@@ -231,6 +232,21 @@
                         </button>
                     </div>
                     <div id="waNumberListKetidakhadiran" class="space-y-2">
+                        <!-- Diisi via JS -->
+                    </div>
+                </div>
+
+                <div class="bg-white p-5 rounded-3xl border border-slate-100 shadow-xs space-y-3">
+                    <div class="flex justify-between items-center">
+                        <h4 class="font-black text-slate-800 text-xs uppercase tracking-wider flex items-center gap-1.5 text-slate-600">
+                            <i class="fa-solid fa-list-check text-[10px]"></i> Riwayat Status Pengiriman
+                        </h4>
+                        <button onclick="renderWaLogList()" class="text-[9px] font-bold text-slate-400 hover:text-indigo-600 bg-slate-50 hover:bg-indigo-50 px-2.5 py-1.5 rounded-lg transition-all">
+                            <i class="fa-solid fa-rotate-right"></i> Muat Ulang
+                        </button>
+                    </div>
+                    <p class="text-[9px] text-slate-400 font-semibold -mt-2 leading-relaxed">Menampilkan 20 pengiriman notifikasi WA terakhir (semua kategori), termasuk yang gagal beserta alasannya.</p>
+                    <div id="waLogListContainer" class="space-y-2">
                         <!-- Diisi via JS -->
                     </div>
                 </div>
@@ -587,6 +603,8 @@
         let ketidakhadiran = JSON.parse(localStorage.getItem('tutuyan_pwa_ketidakhadiran')) || [];
         // Fitur "Kunci Bulan": daftar label bulan (mis. "Juli 2026") yang sudah dikunci Admin
         let lockedMonths = JSON.parse(localStorage.getItem('tutuyan_pwa_lockedmonths')) || [];
+        // Fitur "Konfirmasi Pengiriman WA Gagal": log status tiap pengiriman notifikasi WA (per nomor)
+        let waLog = JSON.parse(localStorage.getItem('tutuyan_pwa_walog')) || [];
         let config = JSON.parse(localStorage.getItem('tutuyan_pwa_config')) || {
             pins: { camat: "123456", kasubag: "123456", admin: "123456" }
         };
@@ -716,6 +734,17 @@
                         lockedMonths = data ? Object.values(data) : [];
                         localStorage.setItem('tutuyan_pwa_lockedmonths', JSON.stringify(lockedMonths));
                         refreshActiveView();
+                    });
+
+                    // Sinkronisasi Log Status Pengiriman WA secara Real-Time (hanya dipakai oleh Admin, tapi disinkron untuk semua agar konsisten)
+                    database.ref('waLog').on('value', (snapshot) => {
+                        const data = snapshot.val();
+                        waLog = data ? Object.values(data) : [];
+                        localStorage.setItem('tutuyan_pwa_walog', JSON.stringify(waLog));
+                        if (loggedInRole === 'admin') {
+                            updateWaFailBadge();
+                            if (currentAdminSubTab === 'notifikasi') renderWaLogList();
+                        }
                     });
 
                     // Sinkronisasi data Config/PIN secara Real-Time
@@ -2090,6 +2119,7 @@
 
             if (!token || numbers.length === 0) {
                 console.warn(`[Notifikasi WA] Belum dikirim (kategori: ${kategori}): Token Fonnte atau daftar nomor penerima belum diatur di menu Admin > Notifikasi WA.`);
+                catatWaLog(kategori, '-', 'gagal', 'Token Fonnte atau daftar nomor penerima belum diatur.', message);
                 return;
             }
 
@@ -2112,17 +2142,79 @@
                     const result = await response.json();
                     if (!result.status) {
                         console.error(`[Notifikasi WA] Gagal mengirim ke ${nomor}:`, result);
+                        catatWaLog(kategori, nomor, 'gagal', result.reason || JSON.stringify(result), message);
                     } else {
                         console.log(`[Notifikasi WA] Berhasil dikirim ke ${nomor}`);
+                        catatWaLog(kategori, nomor, 'sukses', null, message);
                     }
                 } catch (err) {
                     console.error(`[Notifikasi WA] Terjadi kesalahan saat mengirim ke ${nomor}:`, err);
+                    catatWaLog(kategori, nomor, 'gagal', err.message || 'Kesalahan jaringan/koneksi.', message);
                 }
 
                 // Jeda minimal 15 detik sebelum mengirim ke nomor berikutnya (kecuali ini nomor terakhir)
                 if (i < numbers.length - 1) {
                     await tunggu(JEDA_ANTAR_NOMOR_WA_MS);
                 }
+            }
+        }
+
+        // Menyimpan satu baris log status pengiriman WA (dipakai Admin untuk memantau notifikasi yang gagal)
+        function catatWaLog(kategori, nomor, status, errorDetail, pesanLengkap) {
+            const entry = {
+                id: Date.now() + '_' + Math.random().toString(36).slice(2, 7),
+                waktu: Date.now(),
+                kategori: kategori,
+                nomor: nomor,
+                status: status, // 'sukses' atau 'gagal'
+                errorDetail: errorDetail || null,
+                pesanRingkas: (pesanLengkap || '').slice(0, 80)
+            };
+
+            waLog.push(entry);
+            // Batasi log maksimal 100 entri terbaru agar tidak membengkak
+            if (waLog.length > 100) {
+                waLog = waLog.slice(waLog.length - 100);
+            }
+
+            localStorage.setItem('tutuyan_pwa_walog', JSON.stringify(waLog));
+
+            if (isOnline) {
+                database.ref('waLog/' + entry.id).set(entry);
+                // Prune entri lama di Firebase juga, tapi cukup jarang (tiap kali log genap kelipatan 20) agar tidak boros baca/tulis
+                if (waLog.length >= 100) {
+                    const idsToKeep = new Set(waLog.map(w => w.id));
+                    database.ref('waLog').once('value').then(snap => {
+                        const all = snap.val() || {};
+                        Object.keys(all).forEach(key => {
+                            if (!idsToKeep.has(key)) {
+                                database.ref('waLog/' + key).remove();
+                            }
+                        });
+                    });
+                }
+            } else if (loggedInRole === 'admin' && currentAdminSubTab === 'notifikasi') {
+                renderWaLogList();
+            }
+
+            if (loggedInRole === 'admin') updateWaFailBadge();
+        }
+
+        // Menampilkan badge merah di tab "Notifikasi WA" jika ada kegagalan pengiriman dalam 24 jam terakhir
+        function updateWaFailBadge() {
+            const badge = document.getElementById('waFailBadge');
+            if (!badge) return;
+
+            const batas24Jam = Date.now() - (24 * 60 * 60 * 1000);
+            const jumlahGagal = waLog.filter(log => log.status === 'gagal' && log.waktu >= batas24Jam).length;
+
+            if (jumlahGagal > 0) {
+                badge.textContent = jumlahGagal > 9 ? '9+' : jumlahGagal;
+                badge.classList.remove('hidden');
+                badge.classList.add('flex');
+            } else {
+                badge.classList.add('hidden');
+                badge.classList.remove('flex');
             }
         }
 
@@ -2361,6 +2453,45 @@
             if (tokenInput) tokenInput.value = config.wa.token || '';
             renderWaNumberList('penilaian');
             renderWaNumberList('ketidakhadiran');
+            renderWaLogList();
+        }
+
+        // Menampilkan riwayat status pengiriman WA (20 terbaru), dengan detail alasan gagal jika ada
+        function renderWaLogList() {
+            const container = document.getElementById('waLogListContainer');
+            if (!container) return;
+
+            const recent = [...waLog].sort((a, b) => b.waktu - a.waktu).slice(0, 20);
+
+            if (recent.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-6 px-4 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+                        <p class="text-[10px] font-bold text-slate-400">Belum ada riwayat pengiriman notifikasi WA.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = recent.map(log => {
+                const waktuStr = new Date(log.waktu).toLocaleString('id-ID', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+                const kategoriLabel = log.kategori === 'ketidakhadiran' ? 'Ketidakhadiran' : 'Penilaian Kinerja';
+                const isSukses = log.status === 'sukses';
+
+                return `
+                    <div class="bg-slate-50 rounded-2xl p-3 border ${isSukses ? 'border-slate-100' : 'border-rose-200 bg-rose-50/40'}">
+                        <div class="flex justify-between items-start gap-2 mb-1">
+                            <div>
+                                <span class="text-[10px] font-black ${isSukses ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'} px-2 py-0.5 rounded-full">${isSukses ? 'Berhasil' : 'Gagal'}</span>
+                                <span class="text-[9px] font-bold text-slate-400 ml-1.5">${kategoriLabel}</span>
+                            </div>
+                            <span class="text-[9px] font-bold text-slate-400 whitespace-nowrap">${waktuStr}</span>
+                        </div>
+                        <p class="text-xs font-bold text-slate-700 font-mono">${log.nomor}</p>
+                        ${!isSukses && log.errorDetail ? `<p class="text-[10px] text-rose-600 font-semibold mt-1">Alasan: ${log.errorDetail}</p>` : ''}
+                        <p class="text-[9px] text-slate-400 font-semibold mt-1 italic">"${log.pesanRingkas}${log.pesanRingkas && log.pesanRingkas.length >= 80 ? '...' : ''}"</p>
+                    </div>
+                `;
+            }).join('');
         }
 
         // kategori: 'penilaian' atau 'ketidakhadiran'
@@ -2468,6 +2599,7 @@
         // Tampilan Admin Utama
         function renderAdminView() {
             renderLockMonthBar();
+            updateWaFailBadge();
 
             const container = document.getElementById('adminPegawaiSection');
             container.innerHTML = "";
