@@ -235,8 +235,29 @@
             </div>
 
             <!-- Section 2c: Ketidakhadiran Pegawai -->
-            <div id="adminKetidakhadiranSection" class="space-y-2 hidden">
-                <!-- Injected via JS -->
+            <div id="adminKetidakhadiranSection" class="space-y-3 hidden">
+                <div class="flex bg-slate-100 p-1 rounded-2xl">
+                    <button onclick="switchKetidakhadiranView('list', 'adminKetidakhadiran')" id="adminKetidakhadiranViewBtnList" class="flex-1 text-center py-2 rounded-xl text-xs font-extrabold bg-white text-indigo-600 shadow-sm transition-all">
+                        Daftar
+                    </button>
+                    <button onclick="switchKetidakhadiranView('kalender', 'adminKetidakhadiran')" id="adminKetidakhadiranViewBtnKalender" class="flex-1 text-center py-2 rounded-xl text-xs font-extrabold text-slate-500 transition-all">
+                        Kalender
+                    </button>
+                </div>
+
+                <div id="adminKetidakhadiranViewList" class="space-y-2">
+                    <div id="adminKetidakhadiranModalBody" class="space-y-2">
+                        <!-- Diisi via JS -->
+                    </div>
+                </div>
+
+                <div id="adminKetidakhadiranViewKalender" class="hidden">
+                    <select id="adminKetidakhadiranKalenderMonth" onchange="renderKetidakhadiranKalender('adminKetidakhadiranKalenderMonth','adminKetidakhadiranKalenderGrid','adminKetidakhadiranKalenderDetail')" class="w-full bg-slate-50 font-bold text-sm text-slate-700 rounded-xl py-2 px-3 border border-slate-200 outline-none focus:ring-2 focus:ring-indigo-500 mb-3">
+                        <!-- Diisi via populateMonthSelect -->
+                    </select>
+                    <div id="adminKetidakhadiranKalenderGrid"></div>
+                    <div id="adminKetidakhadiranKalenderDetail"></div>
+                </div>
             </div>
 
             <!-- Section 3: Monitoring PIN (Hanya Tampil Untuk Admin) -->
@@ -475,8 +496,30 @@
                     <i class="fa-solid fa-times"></i>
                 </button>
             </div>
-            <div id="ketidakhadiranModalBody" class="overflow-y-auto pr-1 space-y-2">
-                <!-- Diisi via JS -->
+
+            <div class="flex bg-slate-100 p-1 rounded-2xl mb-3 flex-shrink-0">
+                <button onclick="switchKetidakhadiranView('list', 'ketidakhadiran')" id="ketidakhadiranViewBtnList" class="flex-1 text-center py-2 rounded-xl text-xs font-extrabold bg-white text-indigo-600 shadow-sm transition-all">
+                    Daftar
+                </button>
+                <button onclick="switchKetidakhadiranView('kalender', 'ketidakhadiran')" id="ketidakhadiranViewBtnKalender" class="flex-1 text-center py-2 rounded-xl text-xs font-extrabold text-slate-500 transition-all">
+                    Kalender
+                </button>
+            </div>
+
+            <div class="overflow-y-auto pr-1">
+                <div id="ketidakhadiranViewList" class="space-y-2">
+                    <div id="ketidakhadiranModalBody" class="space-y-2">
+                        <!-- Diisi via JS -->
+                    </div>
+                </div>
+
+                <div id="ketidakhadiranViewKalender" class="hidden">
+                    <select id="ketidakhadiranKalenderMonth" onchange="renderKetidakhadiranKalender('ketidakhadiranKalenderMonth','ketidakhadiranKalenderGrid','ketidakhadiranKalenderDetail')" class="w-full bg-slate-50 font-bold text-sm text-slate-700 rounded-xl py-2 px-3 border border-slate-200 outline-none focus:ring-2 focus:ring-indigo-500 mb-3">
+                        <!-- Diisi via populateMonthSelect -->
+                    </select>
+                    <div id="ketidakhadiranKalenderGrid"></div>
+                    <div id="ketidakhadiranKalenderDetail"></div>
+                </div>
             </div>
         </div>
     </div>
@@ -1248,6 +1291,21 @@
                 .reduce((sum, k) => sum + (k.jumlahHari || 0), 0);
         }
 
+        // Mengecek apakah rentang tanggal baru tumpang tindih dengan pengajuan ketidakhadiran
+        // pegawai yang sama yang sudah ada sebelumnya (dicek lintas semua bulan, bukan cuma bulan berjalan)
+        function isTanggalTumpangTindih(empId, tglMulai, tglSelesai) {
+            const startNew = new Date(tglMulai);
+            const endNew = new Date(tglSelesai);
+
+            return ketidakhadiran.some(k => {
+                if (k.empId !== empId) return false;
+                const startExist = new Date(k.tanggalMulai);
+                const endExist = new Date(k.tanggalSelesai);
+                // Dua rentang tumpang tindih jika awal baru <= akhir lama DAN akhir baru >= awal lama
+                return startNew <= endExist && endNew >= startExist;
+            });
+        }
+
         // Menentukan jenis dokumen yang wajib dipakai & notifikasi berdasarkan akumulasi total hari ketidakhadiran bulan ini
         function getStatusKetidakhadiran(totalHari) {
             if (totalHari > 10) {
@@ -1312,6 +1370,12 @@
                 return;
             }
 
+            if (isTanggalTumpangTindih(emp.id, tglMulai, tglSelesai)) {
+                preview.innerHTML = `<div class="bg-rose-50 border border-rose-200 text-rose-600 text-xs font-bold p-3 rounded-xl">Rentang tanggal ini tumpang tindih dengan pengajuan ketidakhadiran Anda yang sudah ada sebelumnya. Silakan periksa kembali di tab "Ketidakhadiran Saya".</div>`;
+                btnSubmit.disabled = true;
+                return;
+            }
+
             const jumlahHariBaru = hitungJumlahHari(tglMulai, tglSelesai);
             const sudahAda = getTotalHariKetidakhadiranBulan(emp.id, bulanMulai);
             const total = sudahAda + jumlahHariBaru;
@@ -1359,6 +1423,11 @@
             const bulanSelesai = getBulanFromTanggal(tglSelesai);
             if (bulanMulai !== bulanSelesai) {
                 alert("Rentang tanggal harus berada dalam bulan yang sama. Silakan ajukan terpisah per bulan.");
+                return;
+            }
+
+            if (isTanggalTumpangTindih(emp.id, tglMulai, tglSelesai)) {
+                alert("Rentang tanggal ini tumpang tindih dengan pengajuan ketidakhadiran Anda yang sudah ada sebelumnya. Silakan periksa kembali di tab \"Ketidakhadiran Saya\".");
                 return;
             }
 
@@ -1470,9 +1539,150 @@
             }).join('');
         }
 
+        // ===== FITUR: TAMPILAN KALENDER KETIDAKHADIRAN =====
+        // Menyimpan id container mana yang sedang aktif menerima detail hari yang diklik
+        let activeKalenderDetailContainerId = null;
+
+        // Mengembalikan semua catatan ketidakhadiran (semua pegawai) yang mencakup tanggal tertentu
+        function getKetidakhadiranByDate(isoDateStr) {
+            const target = new Date(isoDateStr);
+            return ketidakhadiran.filter(k => {
+                const start = new Date(k.tanggalMulai);
+                const end = new Date(k.tanggalSelesai);
+                return target >= start && target <= end;
+            });
+        }
+
+        // Membangun grid kalender bulanan (7 kolom hari, sel kosong penyesuai di awal)
+        function buildKalenderGridHTML(monthLabel) {
+            const d = parseMonthLabel(monthLabel);
+            const year = d.getFullYear();
+            const monthIdx = d.getMonth();
+            const firstDay = new Date(year, monthIdx, 1);
+            const daysInMonth = new Date(year, monthIdx + 1, 0).getDate();
+            const startWeekday = firstDay.getDay(); // 0 = Minggu
+
+            const namaHari = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'];
+
+            let cells = '';
+            for (let i = 0; i < startWeekday; i++) {
+                cells += `<div></div>`;
+            }
+
+            for (let day = 1; day <= daysInMonth; day++) {
+                const dateObj = new Date(year, monthIdx, day);
+                const yyyy = dateObj.getFullYear();
+                const mm = String(dateObj.getMonth() + 1).padStart(2, '0');
+                const dd = String(dateObj.getDate()).padStart(2, '0');
+                const iso = `${yyyy}-${mm}-${dd}`;
+
+                const absen = getKetidakhadiranByDate(iso);
+                const count = absen.length;
+
+                cells += `
+                    <button onclick="showKetidakhadiranDetailHari('${iso}')" class="aspect-square rounded-xl flex flex-col items-center justify-center text-xs font-bold relative transition-all ${count > 0 ? 'bg-amber-100 text-amber-700 hover:bg-amber-200' : 'bg-slate-50 text-slate-500 hover:bg-slate-100'}">
+                        <span>${day}</span>
+                        ${count > 0 ? `<span class="absolute -bottom-1 -right-1 text-[8px] font-black bg-amber-500 text-white rounded-full w-4 h-4 flex items-center justify-center border-2 border-white">${count}</span>` : ''}
+                    </button>
+                `;
+            }
+
+            return `
+                <div class="grid grid-cols-7 gap-1.5 text-center text-[9px] font-black text-slate-400 uppercase mb-1.5">
+                    ${namaHari.map(h => `<div>${h}</div>`).join('')}
+                </div>
+                <div class="grid grid-cols-7 gap-1.5">${cells}</div>
+            `;
+        }
+
+        // Menampilkan detail pegawai yang tidak hadir pada tanggal yang diklik
+        function showKetidakhadiranDetailHari(isoDateStr) {
+            if (!activeKalenderDetailContainerId) return;
+            const container = document.getElementById(activeKalenderDetailContainerId);
+            if (!container) return;
+
+            const absen = getKetidakhadiranByDate(isoDateStr);
+            const tanggalIndo = formatTanggalIndo(isoDateStr);
+
+            if (absen.length === 0) {
+                container.innerHTML = `
+                    <div class="bg-slate-50 border border-dashed border-slate-200 rounded-2xl p-4 text-center mt-3">
+                        <p class="text-xs font-bold text-slate-400">Tidak ada pegawai yang tidak hadir pada ${tanggalIndo}.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = `
+                <p class="text-[10px] font-black text-slate-400 uppercase tracking-wider mb-2 mt-3">Tidak Hadir — ${tanggalIndo}</p>
+                <div class="space-y-2">
+                    ${absen.map(k => {
+                        const emp = employees.find(e => e.id === k.empId);
+                        const nama = emp ? emp.name : 'Pegawai tidak ditemukan';
+                        return `
+                            <div class="bg-white p-3 rounded-2xl border border-slate-100 shadow-xs flex justify-between items-center gap-2">
+                                <div>
+                                    <p class="text-xs font-extrabold text-slate-800">${nama}</p>
+                                    <p class="text-[9px] text-slate-400 font-semibold">${formatTanggalIndo(k.tanggalMulai)} s/d ${formatTanggalIndo(k.tanggalSelesai)}</p>
+                                </div>
+                                <span class="text-[10px] font-black bg-indigo-100 text-indigo-600 px-2.5 py-1 rounded-full whitespace-nowrap flex-shrink-0">${k.jenisDokumen}</span>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+            `;
+        }
+
+        // Menginisialisasi kalender (isi pilihan bulan + render awal) untuk sebuah instance (modal/admin)
+        function initKetidakhadiranKalender(selectId, gridId, detailId) {
+            populateMonthSelect(selectId, true);
+            renderKetidakhadiranKalender(selectId, gridId, detailId);
+        }
+
+        // Merender ulang grid kalender sesuai bulan yang dipilih pada select tertentu
+        function renderKetidakhadiranKalender(selectId, gridId, detailId) {
+            activeKalenderDetailContainerId = detailId;
+            const monthSelect = document.getElementById(selectId);
+            if (!monthSelect) return;
+
+            const monthLabel = monthSelect.value;
+            const gridContainer = document.getElementById(gridId);
+            if (gridContainer) gridContainer.innerHTML = buildKalenderGridHTML(monthLabel);
+
+            const detailContainer = document.getElementById(detailId);
+            if (detailContainer) detailContainer.innerHTML = '';
+        }
+
+        // Beralih antara tampilan "Daftar" dan "Kalender" — dipakai oleh modal Camat/Kasubag maupun tab Admin.
+        // prefix: 'ketidakhadiran' (modal) atau 'adminKetidakhadiran' (tab Admin)
+        function switchKetidakhadiranView(view, prefix) {
+            const btnList = document.getElementById(prefix + 'ViewBtnList');
+            const btnKalender = document.getElementById(prefix + 'ViewBtnKalender');
+            const secList = document.getElementById(prefix + 'ViewList');
+            const secKalender = document.getElementById(prefix + 'ViewKalender');
+            if (!btnList || !btnKalender || !secList || !secKalender) return;
+
+            const activeClass = "flex-1 text-center py-2 rounded-xl text-xs font-extrabold bg-white text-indigo-600 shadow-sm transition-all";
+            const inactiveClass = "flex-1 text-center py-2 rounded-xl text-xs font-extrabold text-slate-500 transition-all";
+
+            if (view === 'kalender') {
+                btnKalender.className = activeClass;
+                btnList.className = inactiveClass;
+                secKalender.classList.remove('hidden');
+                secList.classList.add('hidden');
+            } else {
+                btnList.className = activeClass;
+                btnKalender.className = inactiveClass;
+                secList.classList.remove('hidden');
+                secKalender.classList.add('hidden');
+            }
+        }
+
         // Modal Ketidakhadiran Pegawai (dipakai oleh dashboard Camat & Kasubag)
         function openKetidakhadiranModal() {
             renderKetidakhadiranGlobalList('ketidakhadiranModalBody');
+            initKetidakhadiranKalender('ketidakhadiranKalenderMonth', 'ketidakhadiranKalenderGrid', 'ketidakhadiranKalenderDetail');
+            switchKetidakhadiranView('list', 'ketidakhadiran');
             document.getElementById('ketidakhadiranModal').classList.remove('hidden');
         }
 
@@ -1898,7 +2108,9 @@
             } else if (tab === 'notifikasi') {
                 renderWaSettings();
             } else if (tab === 'ketidakhadiran') {
-                renderKetidakhadiranGlobalList('adminKetidakhadiranSection');
+                renderKetidakhadiranGlobalList('adminKetidakhadiranModalBody');
+                initKetidakhadiranKalender('adminKetidakhadiranKalenderMonth', 'adminKetidakhadiranKalenderGrid', 'adminKetidakhadiranKalenderDetail');
+                switchKetidakhadiranView('list', 'adminKetidakhadiran');
             }
         }
 
@@ -2046,7 +2258,8 @@
             } else if (currentAdminSubTab === 'notifikasi') {
                 renderWaSettings();
             } else if (currentAdminSubTab === 'ketidakhadiran') {
-                renderKetidakhadiranGlobalList('adminKetidakhadiranSection');
+                renderKetidakhadiranGlobalList('adminKetidakhadiranModalBody');
+                initKetidakhadiranKalender('adminKetidakhadiranKalenderMonth', 'adminKetidakhadiranKalenderGrid', 'adminKetidakhadiranKalenderDetail');
             }
 
             renderPinMonitor();
