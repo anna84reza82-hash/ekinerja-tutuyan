@@ -605,6 +605,11 @@
         let lockedMonths = JSON.parse(localStorage.getItem('tutuyan_pwa_lockedmonths')) || [];
         // Fitur "Konfirmasi Pengiriman WA Gagal": log status tiap pengiriman notifikasi WA (per nomor)
         let waLog = JSON.parse(localStorage.getItem('tutuyan_pwa_walog')) || [];
+        // Perbaikan #8: counter untuk benar-benar membatasi pembersihan cache Firebase
+        // ke "tiap 20 pengiriman" sesuai maksud awal — sebelumnya kondisi yang dipakai
+        // (`waLog.length >= 100`) ternyata bernilai true di SETIAP pengiriman begitu log
+        // sudah mencapai 100 entri (bukan cuma tiap 20 seperti yang tertulis di komentar).
+        let waLogKirimSejakPruneTerakhir = 0;
         let config = JSON.parse(localStorage.getItem('tutuyan_pwa_config')) || {
             pins: { camat: "123456", kasubag: "123456", admin: "123456" }
         };
@@ -965,6 +970,20 @@
                 case 'Buruk': return { min: 0, max: 39 };
                 default: return { min: 0, max: 0 };
             }
+        }
+
+        // Perbaikan #3 (bug zona waktu): `new Date("2026-07-16")` oleh JavaScript diinterpretasikan
+        // sebagai tengah malam UTC, lalu dibaca ulang pakai getDate()/getMonth() versi LOKAL.
+        // Untuk timezone di belakang UTC, ini bisa membuat tanggal tampil mundur 1 hari.
+        // Fungsi ini mem-parsing komponen tanggal (yyyy-mm-dd) secara manual dan membangun
+        // objek Date di zona waktu LOKAL perangkat, sehingga tidak pernah bergeser.
+        function parseLocalDate(isoDateStr) {
+            if (!isoDateStr) return new Date(NaN);
+            const parts = String(isoDateStr).split('-');
+            const y = parseInt(parts[0], 10);
+            const m = parseInt(parts[1], 10);
+            const d = parseInt(parts[2], 10);
+            return new Date(y, (m || 1) - 1, d || 1);
         }
 
         // ===== FITUR: RIWAYAT / TREN ANTAR BULAN =====
@@ -1346,8 +1365,8 @@
 
         // Menghitung jumlah hari dalam rentang tanggal (inklusif tanggal mulai & selesai)
         function hitungJumlahHari(tglMulai, tglSelesai) {
-            const start = new Date(tglMulai);
-            const end = new Date(tglSelesai);
+            const start = parseLocalDate(tglMulai);
+            const end = parseLocalDate(tglSelesai);
             const diffMs = end - start;
             const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24)) + 1;
             return diffDays > 0 ? diffDays : 0;
@@ -1355,13 +1374,13 @@
 
         // Mengubah tanggal ISO (yyyy-mm-dd) menjadi label bulan konsisten dengan format aplikasi (mis. "Juli 2026")
         function getBulanFromTanggal(tglString) {
-            const d = new Date(tglString);
+            const d = parseLocalDate(tglString);
             return `${NAMA_BULAN_ID[d.getMonth()]} ${d.getFullYear()}`;
         }
 
         // Format tanggal ISO menjadi format Indonesia yang mudah dibaca (mis. "16 Juli 2026")
         function formatTanggalIndo(tglString) {
-            const d = new Date(tglString);
+            const d = parseLocalDate(tglString);
             return `${d.getDate()} ${NAMA_BULAN_ID[d.getMonth()]} ${d.getFullYear()}`;
         }
 
@@ -1375,13 +1394,13 @@
         // Mengecek apakah rentang tanggal baru tumpang tindih dengan pengajuan ketidakhadiran
         // pegawai yang sama yang sudah ada sebelumnya (dicek lintas semua bulan, bukan cuma bulan berjalan)
         function isTanggalTumpangTindih(empId, tglMulai, tglSelesai) {
-            const startNew = new Date(tglMulai);
-            const endNew = new Date(tglSelesai);
+            const startNew = parseLocalDate(tglMulai);
+            const endNew = parseLocalDate(tglSelesai);
 
             return ketidakhadiran.some(k => {
                 if (k.empId !== empId) return false;
-                const startExist = new Date(k.tanggalMulai);
-                const endExist = new Date(k.tanggalSelesai);
+                const startExist = parseLocalDate(k.tanggalMulai);
+                const endExist = parseLocalDate(k.tanggalSelesai);
                 // Dua rentang tumpang tindih jika awal baru <= akhir lama DAN akhir baru >= awal lama
                 return startNew <= endExist && endNew >= startExist;
             });
@@ -1389,7 +1408,7 @@
 
         // Menentukan jenis dokumen yang wajib dipakai & notifikasi berdasarkan akumulasi total hari ketidakhadiran bulan ini
         function getStatusKetidakhadiran(totalHari) {
-            if (totalHari > 10) {
+            if (totalHari > BATAS_MAKSIMAL_KETIDAKHADIRAN) {
                 return {
                     jenisDokumen: null,
                     pesan: "Anda tidak bisa lagi menggunakan SPT, Surat Izin, atau Surat Sakit untuk membackup ketidakhadiran ini. Silahkan berkonsultasi dengan Camat.",
@@ -1397,7 +1416,7 @@
                     colorClass: 'bg-rose-50 border-rose-200 text-rose-700'
                 };
             }
-            if (totalHari > 7) {
+            if (totalHari > BATAS_SURAT_SAKIT) {
                 return {
                     jenisDokumen: "Surat Izin",
                     pesan: "Anda tidak bisa lagi menggunakan Surat Sakit untuk membackup ketidakhadiran ini. Anda akan menggunakan Surat Izin.",
@@ -1405,7 +1424,7 @@
                     colorClass: 'bg-amber-50 border-amber-200 text-amber-700'
                 };
             }
-            if (totalHari > 5) {
+            if (totalHari > BATAS_SPT) {
                 return {
                     jenisDokumen: "Surat Sakit",
                     pesan: "Anda tidak bisa lagi menggunakan SPT untuk membackup ketidakhadiran ini. Anda akan menggunakan Surat Sakit.",
@@ -1423,20 +1442,26 @@
 
         // ===== FITUR: INDIKATOR SISA JATAH HARI KETIDAKHADIRAN =====
         // Batas maksimal sebelum harus konsultasi Camat adalah 10 hari (lihat getStatusKetidakhadiran)
-        const BATAS_MAKSIMAL_KETIDAKHADIRAN = 10;
+        // Perbaikan #7: satukan ambang batas hari ketidakhadiran ke konstanta bersama.
+        // Sebelumnya angka 5/7/10 ditulis manual (magic number) di dua fungsi berbeda
+        // (getStatusKetidakhadiran & buildJatahKetidakhadiranBarHTML) — kalau salah satu
+        // diubah tanpa mengubah yang lain, logika blokir & tampilan bar jadi tidak sinkron.
+        const BATAS_SPT = 5;           // 0 - 5 hari: masih bisa pakai SPT
+        const BATAS_SURAT_SAKIT = 7;   // 6 - 7 hari: wajib pakai Surat Sakit
+        const BATAS_MAKSIMAL_KETIDAKHADIRAN = 10;   // 8 - 10 hari: wajib pakai Surat Izin; >10 hari: diblokir
 
         function buildJatahKetidakhadiranBarHTML(totalHari) {
             const persen = Math.min((totalHari / BATAS_MAKSIMAL_KETIDAKHADIRAN) * 100, 100);
 
             let warnaBar = 'bg-emerald-500';
             let warnaTeks = 'text-slate-700';
-            if (totalHari > 10) {
+            if (totalHari > BATAS_MAKSIMAL_KETIDAKHADIRAN) {
                 warnaBar = 'bg-rose-600';
                 warnaTeks = 'text-rose-600';
-            } else if (totalHari > 7) {
+            } else if (totalHari > BATAS_SURAT_SAKIT) {
                 warnaBar = 'bg-orange-500';
                 warnaTeks = 'text-orange-600';
-            } else if (totalHari > 5) {
+            } else if (totalHari > BATAS_SPT) {
                 warnaBar = 'bg-amber-500';
                 warnaTeks = 'text-amber-600';
             }
@@ -1449,13 +1474,13 @@
                     </div>
                     <div class="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden relative">
                         <div class="h-full ${warnaBar} rounded-full transition-all duration-300" style="width: ${persen}%"></div>
-                        <div class="absolute top-0 bottom-0 w-px bg-white/80" style="left: 50%"></div>
-                        <div class="absolute top-0 bottom-0 w-px bg-white/80" style="left: 70%"></div>
+                        <div class="absolute top-0 bottom-0 w-px bg-white/80" style="left: ${(BATAS_SPT / BATAS_MAKSIMAL_KETIDAKHADIRAN) * 100}%"></div>
+                        <div class="absolute top-0 bottom-0 w-px bg-white/80" style="left: ${(BATAS_SURAT_SAKIT / BATAS_MAKSIMAL_KETIDAKHADIRAN) * 100}%"></div>
                     </div>
                     <div class="flex justify-between text-[8px] font-bold text-slate-400 uppercase">
-                        <span>SPT (0-5)</span>
-                        <span>Sakit (6-7)</span>
-                        <span>Izin (8-10)</span>
+                        <span>SPT (0-${BATAS_SPT})</span>
+                        <span>Sakit (${BATAS_SPT + 1}-${BATAS_SURAT_SAKIT})</span>
+                        <span>Izin (${BATAS_SURAT_SAKIT + 1}-${BATAS_MAKSIMAL_KETIDAKHADIRAN})</span>
                     </div>
                 </div>
             `;
@@ -1491,7 +1516,7 @@
                 return;
             }
 
-            if (new Date(tglSelesai) < new Date(tglMulai)) {
+            if (parseLocalDate(tglSelesai) < parseLocalDate(tglMulai)) {
                 preview.innerHTML = `<div class="bg-rose-50 border border-rose-200 text-rose-600 text-xs font-bold p-3 rounded-xl">Tanggal Selesai tidak boleh sebelum Tanggal Mulai.</div>`;
                 btnSubmit.disabled = true;
                 return;
@@ -1552,7 +1577,7 @@
                 alert("Harap isi rentang tanggal ketidakhadiran.");
                 return;
             }
-            if (new Date(tglSelesai) < new Date(tglMulai)) {
+            if (parseLocalDate(tglSelesai) < parseLocalDate(tglMulai)) {
                 alert("Tanggal Selesai tidak boleh sebelum Tanggal Mulai.");
                 return;
             }
@@ -1623,7 +1648,7 @@
 
             const records = ketidakhadiran
                 .filter(k => k.empId === empId)
-                .sort((a, b) => new Date(b.tanggalMulai) - new Date(a.tanggalMulai));
+                .sort((a, b) => parseLocalDate(b.tanggalMulai) - parseLocalDate(a.tanggalMulai));
 
             if (records.length === 0) {
                 container.innerHTML = `
@@ -1665,7 +1690,7 @@
                 });
             }
 
-            records.sort((a, b) => new Date(b.tanggalMulai) - new Date(a.tanggalMulai));
+            records.sort((a, b) => parseLocalDate(b.tanggalMulai) - parseLocalDate(a.tanggalMulai));
 
             if (records.length === 0) {
                 container.innerHTML = `
@@ -1728,10 +1753,10 @@
 
         // Mengembalikan semua catatan ketidakhadiran (semua pegawai) yang mencakup tanggal tertentu
         function getKetidakhadiranByDate(isoDateStr) {
-            const target = new Date(isoDateStr);
+            const target = parseLocalDate(isoDateStr);
             return ketidakhadiran.filter(k => {
-                const start = new Date(k.tanggalMulai);
-                const end = new Date(k.tanggalSelesai);
+                const start = parseLocalDate(k.tanggalMulai);
+                const end = parseLocalDate(k.tanggalSelesai);
                 return target >= start && target <= end;
             });
         }
@@ -2198,8 +2223,11 @@
 
             if (isOnline) {
                 database.ref('waLog/' + entry.id).set(entry);
-                // Prune entri lama di Firebase juga, tapi cukup jarang (tiap kali log genap kelipatan 20) agar tidak boros baca/tulis
-                if (waLog.length >= 100) {
+                // Prune entri lama di Firebase HANYA tiap 20 pengiriman (bukan tiap kali), supaya
+                // tidak boros baca/tulis — sekaligus tetap membersihkan entri lama secara berkala.
+                waLogKirimSejakPruneTerakhir++;
+                if (waLog.length >= 100 && waLogKirimSejakPruneTerakhir >= 20) {
+                    waLogKirimSejakPruneTerakhir = 0;
                     const idsToKeep = new Set(waLog.map(w => w.id));
                     database.ref('waLog').once('value').then(snap => {
                         const all = snap.val() || {};
@@ -2250,11 +2278,15 @@
             }
 
             let countCompleted = 0;
+            const monthLockedByAdmin = isMonthLocked(month);
 
             employees.forEach(emp => {
                 const exist = assessments.find(a => a.empId === emp.id && a.month === month);
                 let lockStatusText = "";
-                let isLocked = false;
+                // Perbaikan #1: isLocked sekarang juga true kalau Admin sudah mengunci bulan ini,
+                // bukan cuma berdasarkan batas 25 hari individual. Ini membuat dropdown & tombol
+                // Simpan langsung ter-nonaktif secara visual, bukan hanya diblokir lewat alert.
+                let isLocked = monthLockedByAdmin;
 
                 if (exist) {
                     countCompleted++;
@@ -2264,10 +2296,14 @@
                     if (daysPassed > 25) {
                         isLocked = true;
                         lockStatusText = `<span class="text-[9px] font-bold bg-rose-50 text-rose-600 px-2 py-0.5 rounded-md"><i class="fa-solid fa-lock"></i> Terkunci (>25 Hari)</span>`;
+                    } else if (monthLockedByAdmin) {
+                        lockStatusText = `<span class="text-[9px] font-bold bg-rose-50 text-rose-600 px-2 py-0.5 rounded-md"><i class="fa-solid fa-lock"></i> Bulan Dikunci Admin</span>`;
                     } else {
                         const daysLeft = Math.ceil(25 - daysPassed);
                         lockStatusText = `<span class="text-[9px] font-bold bg-amber-50 text-amber-600 px-2 py-0.5 rounded-md"><i class="fa-solid fa-clock"></i> Sisa Edit: ${daysLeft} Hari</span>`;
                     }
+                } else if (monthLockedByAdmin) {
+                    lockStatusText = `<span class="text-[9px] font-bold bg-rose-50 text-rose-600 px-2 py-0.5 rounded-md"><i class="fa-solid fa-lock"></i> Bulan Dikunci Admin</span>`;
                 }
 
                 const tkdInfoHtml = exist ? renderTKDInfoBlock(emp, exist.pred, exist.potonganKehadiran) : '';
@@ -2317,8 +2353,9 @@
             const month = document.getElementById('kasubagFilterMonth').value;
             const container = document.getElementById('kasubagCardContainer');
             container.innerHTML = "";
+            const monthLockedByAdmin = isMonthLocked(month);
 
-            if (isMonthLocked(month)) {
+            if (monthLockedByAdmin) {
                 container.innerHTML += `
                     <div class="bg-rose-50 border border-rose-200 text-rose-700 font-bold py-3 px-4 rounded-2xl text-xs flex items-center gap-2">
                         <i class="fa-solid fa-lock"></i> Bulan ${month} sudah dikunci oleh Admin. Potongan Kehadiran tidak bisa diubah sampai kuncinya dibuka.
@@ -2379,8 +2416,8 @@
                         <div class="bg-slate-50 rounded-xl px-3 py-2.5 space-y-2 border-t border-slate-50">
                             <label class="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">Potongan Kehadiran (%)</label>
                             <div class="flex gap-2">
-                                <input type="number" step="0.1" min="0" max="100" id="kehadiran_${item.empId}" value="${(item.potonganKehadiran !== undefined && item.potonganKehadiran !== null) ? item.potonganKehadiran : ''}" placeholder="Contoh: 10" class="flex-1 min-w-0 bg-white border border-slate-200 rounded-lg px-3 py-2 text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500">
-                                <button onclick="saveKehadiran(${item.empId}, '${month}')" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 rounded-lg text-xs font-bold active:scale-95 transition-transform flex-shrink-0">
+                                <input type="number" step="0.1" min="0" max="100" id="kehadiran_${item.empId}" ${monthLockedByAdmin ? 'disabled' : ''} value="${(item.potonganKehadiran !== undefined && item.potonganKehadiran !== null) ? item.potonganKehadiran : ''}" placeholder="Contoh: 10" class="flex-1 min-w-0 bg-white border border-slate-200 rounded-lg px-3 py-2 text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed">
+                                <button onclick="saveKehadiran(${item.empId}, '${month}')" ${monthLockedByAdmin ? 'disabled' : ''} class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 rounded-lg text-xs font-bold active:scale-95 transition-transform flex-shrink-0 disabled:opacity-40 disabled:cursor-not-allowed">
                                     Simpan
                                 </button>
                             </div>
@@ -2549,17 +2586,25 @@
 
             const validLokal = /^0[0-9]{8,14}$/.test(num);
             const validInternasional = /^62[0-9]{8,14}$/.test(num);
-            const validGroupId = /^\d{5,25}$/.test(num);
+            // Perbaikan #6: ID Grup WhatsApp asli biasanya berupa angka PANJANG (16-25 digit).
+            // Sebelumnya batas bawahnya cuma 5 digit, sehingga nomor pribadi yang salah ketik
+            // (mis. lupa awalan 0/62, jadi 9-15 digit) bisa lolos begitu saja dianggap "ID Grup"
+            // tanpa peringatan apa pun. Sekarang dipisah jadi 2 pengecekan agar typo terdeteksi.
+            const miripNomorHpSalahKetik = /^\d{9,15}$/.test(num);
+            const validGroupId = /^\d{16,25}$/.test(num);
 
             if (validLokal) {
                 num = '62' + num.substring(1);
             } else if (validInternasional) {
                 // sudah dalam format 62xxxx, biarkan apa adanya
             } else if (kategori === 'ketidakhadiran' && validGroupId) {
-                // dianggap ID Grup WhatsApp, biarkan apa adanya
+                // dianggap ID Grup WhatsApp (angka panjang, bukan pola nomor HP), biarkan apa adanya
+            } else if (kategori === 'ketidakhadiran' && miripNomorHpSalahKetik) {
+                alert("Nomor ini terlihat seperti nomor HP tapi formatnya tidak lengkap. Pastikan diawali 08 (nomor lokal) atau 62 (format internasional). Kalau maksudnya ID Grup WhatsApp, ID grup biasanya berupa angka yang jauh lebih panjang (16 digit atau lebih).");
+                return;
             } else {
                 const pesanFormat = kategori === 'ketidakhadiran'
-                    ? "Format tidak valid. Gunakan nomor 08xxxxxxxxxx / 62xxxxxxxxxx, atau ID Grup WhatsApp (angka saja)."
+                    ? "Format tidak valid. Gunakan nomor 08xxxxxxxxxx / 62xxxxxxxxxx, atau ID Grup WhatsApp (angka panjang, 16 digit atau lebih)."
                     : "Format nomor tidak valid. Gunakan format 08xxxxxxxxxx atau 62xxxxxxxxxx (hanya angka).";
                 alert(pesanFormat);
                 return;
@@ -2661,6 +2706,7 @@
             const month = document.getElementById('adminFilterMonth').value;
             const container = document.getElementById('adminNilaiSection');
             container.innerHTML = "";
+            const monthLockedByAdmin = isMonthLocked(month);
 
             const monthData = assessments.filter(a => a.month === month);
 
@@ -2693,7 +2739,7 @@
                                 <button onclick="openHistoryModal(${item.empId})" class="text-[9px] font-bold text-slate-400 hover:text-indigo-600 bg-slate-50 hover:bg-indigo-50 px-2.5 py-1.5 rounded-lg transition-all">
                                     <i class="fa-solid fa-clock-rotate-left"></i>
                                 </button>
-                                <button onclick="deleteAssessment(${item.empId}, '${month}')" class="text-rose-500 hover:text-rose-700 text-xs font-bold bg-rose-50 px-2 py-1 rounded-lg">
+                                <button onclick="deleteAssessment(${item.empId}, '${month}')" ${monthLockedByAdmin ? 'disabled' : ''} class="text-rose-500 hover:text-rose-700 text-xs font-bold bg-rose-50 px-2 py-1 rounded-lg disabled:opacity-40 disabled:cursor-not-allowed">
                                     <i class="fa-solid fa-circle-xmark mr-1"></i>Reset Nilai
                                 </button>
                             </div>
@@ -2803,24 +2849,49 @@
         }
 
         function deleteEmployee(id) {
-            if (confirm("Apakah Anda yakin ingin menghapus pegawai ini dari database?")) {
-                employees = employees.filter(e => e.id !== id);
-                assessments = assessments.filter(a => a.empId !== id);
-                
-                localStorage.setItem('tutuyan_pwa_employees', JSON.stringify(employees));
-                localStorage.setItem('tutuyan_pwa_assessments', JSON.stringify(assessments));
-                
-                if (isOnline) {
-                    database.ref('employees').set(employees);
-                    // Update ualang list di Firebase
-                    database.ref('assessments').set(assessments.reduce((acc, curr) => {
-                        const safeKey = `${curr.empId}_${curr.month.replace(/\s+/g, '_')}`;
-                        acc[safeKey] = curr;
-                        return acc;
-                    }, {}));
-                } else {
-                    renderAdminView();
-                }
+            // Perbaikan #2: cegah penghapusan pegawai kalau ada penilaian miliknya di bulan
+            // yang sudah dikunci Admin — sebelumnya, hapus pegawai bisa melewati proteksi
+            // Kunci Bulan karena langsung menghapus seluruh riwayat assessments-nya.
+            const bulanTerkunciTerkait = [...new Set(
+                assessments.filter(a => a.empId === id && isMonthLocked(a.month)).map(a => a.month)
+            )];
+
+            if (bulanTerkunciTerkait.length > 0) {
+                alert(`Pegawai ini tidak bisa dihapus karena memiliki data penilaian pada bulan yang terkunci: ${bulanTerkunciTerkait.join(', ')}. Buka kunci bulan tersebut terlebih dahulu (tab "Pantau Semua Nilai") sebelum menghapus pegawai ini.`);
+                return;
+            }
+
+            if (!confirm("Apakah Anda yakin ingin menghapus pegawai ini dari database? Seluruh riwayat penilaian dan ketidakhadiran pegawai ini juga akan ikut terhapus.")) {
+                return;
+            }
+
+            // Kumpulkan dulu key/id yang perlu dihapus di Firebase SEBELUM array lokal difilter
+            const assessmentKeysToRemove = assessments
+                .filter(a => a.empId === id)
+                .map(a => `${a.empId}_${a.month.replace(/\s+/g, '_')}`);
+            // Perbaikan #4: turut hapus data ketidakhadiran milik pegawai yang dihapus
+            const ketidakhadiranIdsToRemove = ketidakhadiran
+                .filter(k => k.empId === id)
+                .map(k => k.id);
+
+            employees = employees.filter(e => e.id !== id);
+            assessments = assessments.filter(a => a.empId !== id);
+            ketidakhadiran = ketidakhadiran.filter(k => k.empId !== id);
+
+            localStorage.setItem('tutuyan_pwa_employees', JSON.stringify(employees));
+            localStorage.setItem('tutuyan_pwa_assessments', JSON.stringify(assessments));
+            localStorage.setItem('tutuyan_pwa_ketidakhadiran', JSON.stringify(ketidakhadiran));
+
+            if (isOnline) {
+                database.ref('employees').set(employees);
+                // Perbaikan #5: hapus HANYA key milik pegawai ini secara spesifik (surgical),
+                // bukan menimpa (overwrite) seluruh node assessments/ketidakhadiran — supaya
+                // penilaian baru yang mungkin sedang disimpan Camat lain di saat bersamaan
+                // tidak ikut hilang tertimpa.
+                assessmentKeysToRemove.forEach(key => database.ref('assessments/' + key).remove());
+                ketidakhadiranIdsToRemove.forEach(kid => database.ref('ketidakhadiran/' + kid).remove());
+            } else {
+                renderAdminView();
             }
         }
 
