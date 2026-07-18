@@ -632,6 +632,23 @@
 
         let waTokenVisible = false;
 
+        // ===== PERBAIKAN KEAMANAN: PENCEGAHAN STORED XSS =====
+        // Semua teks yang berasal dari input pengguna (nama pegawai, jabatan, alasan
+        // ketidakhadiran, dll) HARUS melewati fungsi ini sebelum dimasukkan ke innerHTML.
+        // Ini TIDAK membatasi apa yang boleh diketik pengguna — mereka tetap bebas mengetik
+        // apa saja. Yang berubah hanya cara teks itu DITAMPILKAN: karakter seperti < > & " '
+        // diubah jadi entitas HTML aman (mis. < menjadi &lt;) sehingga browser menampilkannya
+        // sebagai teks biasa, bukan menjalankannya sebagai kode/tag HTML.
+        function escapeHtml(str) {
+            if (str === null || str === undefined) return '';
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
         let currentActiveRole = 'camat';
         let loggedInRole = ''; 
         let selectedPegawaiId = null;
@@ -1118,8 +1135,8 @@
             container.innerHTML = employees.map(emp => `
                 <button onclick="selectPegawai(${emp.id})" class="w-full flex items-center justify-between bg-white p-4 rounded-2xl border border-slate-100 shadow-xs hover:border-indigo-200 hover:bg-indigo-50/30 transition-all text-left">
                     <div>
-                        <h4 class="font-extrabold text-slate-800 text-sm">${emp.name}</h4>
-                        <p class="text-[10px] text-slate-400 font-bold uppercase tracking-wider mt-0.5">${emp.jabatan}</p>
+                        <h4 class="font-extrabold text-slate-800 text-sm">${escapeHtml(emp.name)}</h4>
+                        <p class="text-[10px] text-slate-400 font-bold uppercase tracking-wider mt-0.5">${escapeHtml(emp.jabatan)}</p>
                     </div>
                     <i class="fa-solid fa-chevron-right text-slate-300"></i>
                 </button>
@@ -1218,8 +1235,8 @@
             container.innerHTML = `
                 <div class="bg-indigo-600 rounded-3xl p-5 text-white shadow-xl shadow-indigo-100 relative overflow-hidden">
                     <div class="relative z-10">
-                        <h3 class="font-extrabold text-lg">${emp.name}</h3>
-                        <p class="opacity-75 text-xs font-semibold">${emp.jabatan} (${emp.gol})</p>
+                        <h3 class="font-extrabold text-lg">${escapeHtml(emp.name)}</h3>
+                        <p class="opacity-75 text-xs font-semibold">${escapeHtml(emp.jabatan)} (${escapeHtml(emp.gol)})</p>
                     </div>
                     <div class="absolute -right-4 -bottom-6 text-8xl opacity-10"><i class="fa-solid fa-user"></i></div>
                 </div>
@@ -1624,7 +1641,7 @@
                         <span class="text-[9px] font-bold text-slate-400">${k.jumlahHari} hari</span>
                     </div>
                     <p class="text-xs font-bold text-slate-700">${formatTanggalIndo(k.tanggalMulai)} s/d ${formatTanggalIndo(k.tanggalSelesai)}</p>
-                    <p class="text-[10px] text-slate-400 font-semibold mt-1">${k.alasan}</p>
+                    <p class="text-[10px] text-slate-400 font-semibold mt-1">${escapeHtml(k.alasan)}</p>
                 </div>
             `).join('');
         }
@@ -1665,14 +1682,14 @@
                 return `
                     <div class="bg-white p-3.5 rounded-2xl border border-slate-100 shadow-xs">
                         <div class="flex justify-between items-start mb-1 gap-2">
-                            <h5 class="text-xs font-extrabold text-slate-800">${namaEmp}</h5>
+                            <h5 class="text-xs font-extrabold text-slate-800">${escapeHtml(namaEmp)}</h5>
                             <div class="flex items-center gap-1.5 flex-shrink-0">
                                 <span class="text-[10px] font-black bg-indigo-100 text-indigo-600 px-2.5 py-1 rounded-full whitespace-nowrap">${k.jenisDokumen}</span>
                                 ${showDelete ? `<button onclick="hapusKetidakhadiran(${k.id})" class="text-rose-500 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 w-7 h-7 rounded-lg flex items-center justify-center transition-all"><i class="fa-solid fa-trash text-[10px]"></i></button>` : ''}
                             </div>
                         </div>
                         <p class="text-xs font-bold text-slate-600">${formatTanggalIndo(k.tanggalMulai)} s/d ${formatTanggalIndo(k.tanggalSelesai)} (${k.jumlahHari} hari)</p>
-                        <p class="text-[10px] text-slate-400 font-semibold mt-1">${k.alasan}</p>
+                        <p class="text-[10px] text-slate-400 font-semibold mt-1">${escapeHtml(k.alasan)}</p>
                     </div>
                 `;
             }).join('');
@@ -1788,7 +1805,7 @@
                         return `
                             <div class="bg-white p-3 rounded-2xl border border-slate-100 shadow-xs flex justify-between items-center gap-2">
                                 <div>
-                                    <p class="text-xs font-extrabold text-slate-800">${nama}</p>
+                                    <p class="text-xs font-extrabold text-slate-800">${escapeHtml(nama)}</p>
                                     <p class="text-[9px] text-slate-400 font-semibold">${formatTanggalIndo(k.tanggalMulai)} s/d ${formatTanggalIndo(k.tanggalSelesai)}</p>
                                 </div>
                                 <span class="text-[10px] font-black bg-indigo-100 text-indigo-600 px-2.5 py-1 rounded-full whitespace-nowrap flex-shrink-0">${k.jenisDokumen}</span>
@@ -2259,8 +2276,8 @@
                     <div class="bg-white p-5 rounded-3xl shadow-xs border border-slate-100 flex flex-col justify-between space-y-4">
                         <div class="flex justify-between items-start">
                             <div class="max-w-[70%]">
-                                <h4 class="font-extrabold text-slate-800 text-sm leading-tight">${emp.name}</h4>
-                                <p class="text-[10px] text-slate-400 font-bold mt-1 uppercase tracking-tight">${emp.jabatan} (${emp.gol})</p>
+                                <h4 class="font-extrabold text-slate-800 text-sm leading-tight">${escapeHtml(emp.name)}</h4>
+                                <p class="text-[10px] text-slate-400 font-bold mt-1 uppercase tracking-tight">${escapeHtml(emp.jabatan)} (${escapeHtml(emp.gol)})</p>
                             </div>
                             <div class="text-right">
                                 ${exist ? `<span class="text-[10px] font-black bg-emerald-100 text-emerald-600 px-2.5 py-1 rounded-full">Selesai</span>` : `<span class="text-[10px] font-black bg-slate-100 text-slate-400 px-2.5 py-1 rounded-full">Belum</span>`}
@@ -2334,8 +2351,8 @@
                     <div class="bg-white p-5 rounded-3xl shadow-xs border border-slate-100 space-y-4">
                         <div class="flex justify-between items-start">
                             <div>
-                                <h4 class="font-extrabold text-slate-800 text-sm leading-tight">${emp.name}</h4>
-                                <p class="text-[10px] text-indigo-500 font-bold mt-1 uppercase tracking-tight">${emp.jabatan} (${emp.gol})</p>
+                                <h4 class="font-extrabold text-slate-800 text-sm leading-tight">${escapeHtml(emp.name)}</h4>
+                                <p class="text-[10px] text-indigo-500 font-bold mt-1 uppercase tracking-tight">${escapeHtml(emp.jabatan)} (${escapeHtml(emp.gol)})</p>
                             </div>
                             <div class="flex flex-col items-end gap-1.5">
                                 <span class="text-[10px] font-black bg-indigo-100 text-indigo-600 px-3 py-1 rounded-full">${item.pred}</span>
@@ -2486,9 +2503,9 @@
                             </div>
                             <span class="text-[9px] font-bold text-slate-400 whitespace-nowrap">${waktuStr}</span>
                         </div>
-                        <p class="text-xs font-bold text-slate-700 font-mono">${log.nomor}</p>
-                        ${!isSukses && log.errorDetail ? `<p class="text-[10px] text-rose-600 font-semibold mt-1">Alasan: ${log.errorDetail}</p>` : ''}
-                        <p class="text-[9px] text-slate-400 font-semibold mt-1 italic">"${log.pesanRingkas}${log.pesanRingkas && log.pesanRingkas.length >= 80 ? '...' : ''}"</p>
+                        <p class="text-xs font-bold text-slate-700 font-mono">${escapeHtml(log.nomor)}</p>
+                        ${!isSukses && log.errorDetail ? `<p class="text-[10px] text-rose-600 font-semibold mt-1">Alasan: ${escapeHtml(log.errorDetail)}</p>` : ''}
+                        <p class="text-[9px] text-slate-400 font-semibold mt-1 italic">"${escapeHtml(log.pesanRingkas)}${log.pesanRingkas && log.pesanRingkas.length >= 80 ? '...' : ''}"</p>
                     </div>
                 `;
             }).join('');
@@ -2608,9 +2625,9 @@
                 const cardHtml = `
                     <div class="bg-white p-4 rounded-3xl shadow-xs border border-slate-100 flex justify-between items-center">
                         <div class="max-w-[70%]">
-                            <h4 class="font-bold text-slate-800 text-sm leading-tight">${emp.name}</h4>
-                            <p class="text-[9px] text-slate-400 font-bold mt-1 uppercase tracking-wider">${emp.jabatan}</p>
-                            <p class="text-[9px] text-indigo-500 font-mono font-bold">NIP: ${emp.nip}</p>
+                            <h4 class="font-bold text-slate-800 text-sm leading-tight">${escapeHtml(emp.name)}</h4>
+                            <p class="text-[9px] text-slate-400 font-bold mt-1 uppercase tracking-wider">${escapeHtml(emp.jabatan)}</p>
+                            <p class="text-[9px] text-indigo-500 font-mono font-bold">NIP: ${escapeHtml(emp.nip)}</p>
                             <p class="text-[9px] text-emerald-600 font-mono font-bold mt-0.5">TKD: ${formatRupiah(emp.besaranTKD)} &bull; PPh 21: ${emp.pph21 || 0}%</p>
                             <p class="text-[9px] text-slate-400 font-mono font-bold mt-0.5">PIN Login: ${emp.pin || '123456'}</p>
                         </div>
@@ -2669,8 +2686,8 @@
                     <div class="bg-white p-4 rounded-3xl shadow-xs border border-slate-100 space-y-3">
                         <div class="flex justify-between items-start">
                             <div>
-                                <h4 class="font-extrabold text-slate-700 text-xs leading-tight">${emp.name}</h4>
-                                <p class="text-[9px] text-indigo-500 font-semibold">${emp.jabatan}</p>
+                                <h4 class="font-extrabold text-slate-700 text-xs leading-tight">${escapeHtml(emp.name)}</h4>
+                                <p class="text-[9px] text-indigo-500 font-semibold">${escapeHtml(emp.jabatan)}</p>
                             </div>
                             <div class="flex items-center gap-1.5">
                                 <button onclick="openHistoryModal(${item.empId})" class="text-[9px] font-bold text-slate-400 hover:text-indigo-600 bg-slate-50 hover:bg-indigo-50 px-2.5 py-1.5 rounded-lg transition-all">
