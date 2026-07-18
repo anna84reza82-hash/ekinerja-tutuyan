@@ -548,18 +548,18 @@
     <script>
         // Data Awal Pegawai Resmi Lengkap (Gambar 3)
         const initialEmployees = [
-            { id: 1, name: "HESTY PAPUTUNGAN, Amd.Keb", nip: "19770628 200701 2016", gol: "III/c", jabatan: "Camat", type: "struktural", besaranTKD: 6800000, pph21: 5, pin: "123456" },
-            { id: 2, name: "HOLY REZA PAHLEVI ANI, S.Si", nip: "19820302 201001 1015", gol: "IV/a", jabatan: "Sekretaris Camat", type: "struktural", besaranTKD: 2948000, pph21: 15, pin: "123456" },
-            { id: 3, name: "CHRISTIAN SYALOOM MARCO DOODOH, S.Pi", nip: "19880626 202203 1 005", gol: "III/a", jabatan: "Kepala Seksi Pemerintahan", type: "struktural", besaranTKD: 2156000, pph21: 5, pin: "123456" },
-            { id: 4, name: "RISANDI D MOMINTAN, S.KEP", nip: "19900213 201403 1002", gol: "III/c", jabatan: "Kepala Seksi Pembangunan dan Pemberdayaan Masyarakat", type: "struktural", besaranTKD: 2156000, pph21: 5, pin: "123456" },
-            { id: 5, name: "SAID MUHAMMAD HUD, SS", nip: "19821102 201201 1 001", gol: "III/d", jabatan: "Kepala Seksi Ketenteraman dan Ketertiban", type: "struktural", besaranTKD: 2156000, pph21: 5, pin: "123456" },
-            { id: 6, name: "HELISTA MODEONG, A.Ma.Pd", nip: "19761107 201408 2 001", gol: "II/d", jabatan: "Kepala Seksi Kesejahteraan Sosial dan Pemberdayaan Perempuan", type: "struktural", besaranTKD: 2156000, pph21: 5, pin: "123456" },
-            { id: 7, name: "RENA WIDYASARI MONGILONG, SE", nip: "19850829 200902 2002", gol: "III/d", jabatan: "Kepala Seksi Pelayanan Umum", type: "struktural", besaranTKD: 2156000, pph21: 5, pin: "123456" },
-            { id: 8, name: "DEVIANTI LASABUDA", nip: "19800424 201001 2 011", gol: "III/b", jabatan: "Kepala Sub Bagian Perencanaan, Program, Evaluasi dan Pelaporan", type: "struktural", besaranTKD: 2295000, pph21: 5, pin: "123456" },
-            { id: 9, name: "ALCEN MOSU, SE", nip: "19850927 200701 2004", gol: "III/d", jabatan: "Kepala Sub Bagian Keuangan, Umum dan Kepegawaian", type: "struktural", besaranTKD: 2156000, pph21: 5, pin: "123456" },
-            { id: 10, name: "NURIRAWATY LIMBANADI", nip: "19760216 201201 2 001", gol: "II/d", jabatan: "PENGADMINISTRASI PERKANTORAN", type: "staf", besaranTKD: 1008000, pph21: 0, pin: "123456" },
-            { id: 11, name: "JEFRI KRISYE ARUNDAA", nip: "19890605 201201 1 001", gol: "II/c", jabatan: "PENGADMINISTRASI PERKANTORAN", type: "staf", besaranTKD: 1008000, pph21: 0, pin: "123456" },
-            { id: 12, name: "MUKSIN GOBEL", nip: "19710727 201001 1003", gol: "II/a", jabatan: "PENGADMINISTRASI PERKANTORAN", type: "staf", besaranTKD: 1008000, pph21: 0, pin: "123456" }
+            { id: 1, name: "HESTY PAPUTUNGAN, Amd.Keb", nip: "19770628 200701 2016", gol: "III/c", jabatan: "Camat", type: "struktural", besaranTKD: 6800000, pph21: 5, pin: "123456", aktif: true },
+            { id: 2, name: "HOLY REZA PAHLEVI ANI, S.Si", nip: "19820302 201001 1015", gol: "IV/a", jabatan: "Sekretaris Camat", type: "struktural", besaranTKD: 2948000, pph21: 15, pin: "123456", aktif: true },
+            { id: 3, name: "CHRISTIAN SYALOOM MARCO DOODOH, S.Pi", nip: "19880626 202203 1 005", gol: "III/a", jabatan: "Kepala Seksi Pemerintahan", type: "struktural", besaranTKD: 2156000, pph21: 5, pin: "123456", aktif: true },
+            { id: 4, name: "RISANDI D MOMINTAN, S.KEP", nip: "19900213 201403 1002", gol: "III/c", jabatan: "Kepala Seksi Pembangunan dan Pemberdayaan Masyarakat", type: "struktural", besaranTKD: 2156000, pph21: 5, pin: "123456", aktif: true },
+            { id: 5, name: "SAID MUHAMMAD HUD, SS", nip: "19821102 201201 1 001", gol: "III/d", jabatan: "Kepala Seksi Ketenteraman dan Ketertiban", type: "struktural", besaranTKD: 2156000, pph21: 5, pin: "123456", aktif: true },
+            { id: 6, name: "HELISTA MODEONG, A.Ma.Pd", nip: "19761107 201408 2 001", gol: "II/d", jabatan: "Kepala Seksi Kesejahteraan Sosial dan Pemberdayaan Perempuan", type: "struktural", besaranTKD: 2156000, pph21: 5, pin: "123456", aktif: true },
+            { id: 7, name: "RENA WIDYASARI MONGILONG, SE", nip: "19850829 200902 2002", gol: "III/d", jabatan: "Kepala Seksi Pelayanan Umum", type: "struktural", besaranTKD: 2156000, pph21: 5, pin: "123456", aktif: true },
+            { id: 8, name: "DEVIANTI LASABUDA", nip: "19800424 201001 2 011", gol: "III/b", jabatan: "Kepala Sub Bagian Perencanaan, Program, Evaluasi dan Pelaporan", type: "struktural", besaranTKD: 2295000, pph21: 5, pin: "123456", aktif: true },
+            { id: 9, name: "ALCEN MOSU, SE", nip: "19850927 200701 2004", gol: "III/d", jabatan: "Kepala Sub Bagian Keuangan, Umum dan Kepegawaian", type: "struktural", besaranTKD: 2156000, pph21: 5, pin: "123456", aktif: true },
+            { id: 10, name: "NURIRAWATY LIMBANADI", nip: "19760216 201201 2 001", gol: "II/d", jabatan: "PENGADMINISTRASI PERKANTORAN", type: "staf", besaranTKD: 1008000, pph21: 0, pin: "123456", aktif: true },
+            { id: 11, name: "JEFRI KRISYE ARUNDAA", nip: "19890605 201201 1 001", gol: "II/c", jabatan: "PENGADMINISTRASI PERKANTORAN", type: "staf", besaranTKD: 1008000, pph21: 0, pin: "123456", aktif: true },
+            { id: 12, name: "MUKSIN GOBEL", nip: "19710727 201001 1003", gol: "II/a", jabatan: "PENGADMINISTRASI PERKANTORAN", type: "staf", besaranTKD: 1008000, pph21: 0, pin: "123456", aktif: true }
         ];
 
         // KONFIGURASI DATABASE ONLINE FIREBASE (Diambil dari Gambar Setup Anda)
@@ -584,7 +584,12 @@
         // (sudah tersimpan sebelum field besaranTKD/pph21/pin ditambahkan) agar tidak error.
         function normalizeEmployeeTKD(list) {
             return (list || []).map(emp => {
-                const sudahLengkap = typeof emp.besaranTKD === 'number' && typeof emp.pph21 === 'number' && typeof emp.pin === 'string';
+                // Fitur "Tandai Non-Aktif": pegawai lama yang belum punya field `aktif`
+                // dianggap aktif secara default (true), supaya tidak tiba-tiba hilang dari
+                // daftar penilaian Camat setelah update.
+                const aktif = typeof emp.aktif === 'boolean' ? emp.aktif : true;
+
+                const sudahLengkap = typeof emp.besaranTKD === 'number' && typeof emp.pph21 === 'number' && typeof emp.pin === 'string' && typeof emp.aktif === 'boolean';
                 if (sudahLengkap) {
                     return emp;
                 }
@@ -593,7 +598,8 @@
                     ...emp,
                     besaranTKD: typeof emp.besaranTKD === 'number' ? emp.besaranTKD : (ref ? ref.besaranTKD : 0),
                     pph21: typeof emp.pph21 === 'number' ? emp.pph21 : (ref ? ref.pph21 : 0),
-                    pin: typeof emp.pin === 'string' ? emp.pin : (ref ? ref.pin : "123456")
+                    pin: typeof emp.pin === 'string' ? emp.pin : (ref ? ref.pin : "123456"),
+                    aktif: aktif
                 };
             });
         }
@@ -1142,7 +1148,11 @@
             const container = document.getElementById('pegawaiListContainer');
             if (!container) return;
 
-            if (employees.length === 0) {
+            // Fitur "Tandai Non-Aktif": pegawai yang sudah ditandai non-aktif tidak muncul
+            // di daftar pilih nama saat login sebagai Pegawai.
+            const employeesAktif = employees.filter(e => e.aktif !== false);
+
+            if (employeesAktif.length === 0) {
                 container.innerHTML = `
                     <div class="text-center py-8 px-4 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
                         <p class="text-xs font-bold text-slate-400">Belum ada data pegawai.</p>
@@ -1151,7 +1161,7 @@
                 return;
             }
 
-            container.innerHTML = employees.map(emp => `
+            container.innerHTML = employeesAktif.map(emp => `
                 <button onclick="selectPegawai(${emp.id})" class="w-full flex items-center justify-between bg-white p-4 rounded-2xl border border-slate-100 shadow-xs hover:border-indigo-200 hover:bg-indigo-50/30 transition-all text-left">
                     <div>
                         <h4 class="font-extrabold text-slate-800 text-sm">${escapeHtml(emp.name)}</h4>
@@ -2111,8 +2121,11 @@
             renderCamatView();
 
             // NOTIFIKASI WHATSAPP CONDITIONS
-            const totalAssessmentBulanIni = assessments.filter(a => a.month === month).length;
-            const semuaPegawaiSudahLengkap = totalAssessmentBulanIni === employees.length;
+            // Fitur "Tandai Non-Aktif": hitung kelengkapan hanya berdasarkan pegawai yang
+            // masih aktif — pegawai non-aktif tidak perlu dinilai dan tidak ikut dihitung.
+            const activeEmployeeIds = new Set(employees.filter(e => e.aktif !== false).map(e => e.id));
+            const totalAssessmentBulanIni = assessments.filter(a => a.month === month && activeEmployeeIds.has(a.empId)).length;
+            const semuaPegawaiSudahLengkap = activeEmployeeIds.size > 0 && totalAssessmentBulanIni === activeEmployeeIds.size;
 
             if (isEdit) {
                 // Perbaikan: notifikasi edit HANYA terkirim jika seluruh pegawai (semua) sudah
@@ -2122,7 +2135,7 @@
                 }
             } else {
                 if (semuaPegawaiSudahLengkap) {
-                    triggerWaNotification(`PEMBERITAHUAN: Camat telah *menyelesaikan & menyimpan semua penilaian* untuk seluruh pegawai (${employees.length} Orang) pada periode *${month}*.`);
+                    triggerWaNotification(`PEMBERITAHUAN: Camat telah *menyelesaikan & menyimpan semua penilaian* untuk seluruh pegawai (${activeEmployeeIds.size} Orang) pada periode *${month}*.`);
                 }
             }
         }
@@ -2279,8 +2292,11 @@
 
             let countCompleted = 0;
             const monthLockedByAdmin = isMonthLocked(month);
+            // Fitur "Tandai Non-Aktif": pegawai non-aktif tidak perlu dinilai lagi, jadi
+            // disembunyikan dari daftar penilaian Camat (riwayat lamanya tetap ada di data).
+            const employeesAktif = employees.filter(e => e.aktif !== false);
 
-            employees.forEach(emp => {
+            employeesAktif.forEach(emp => {
                 const exist = assessments.find(a => a.empId === emp.id && a.month === month);
                 let lockStatusText = "";
                 // Perbaikan #1: isLocked sekarang juga true kalau Admin sudah mengunci bulan ini,
@@ -2345,7 +2361,7 @@
                 container.innerHTML += cardHtml;
             });
 
-            document.getElementById('camatCompletionBadge').textContent = `${countCompleted} / ${employees.length} Pegawai`;
+            document.getElementById('camatCompletionBadge').textContent = `${countCompleted} / ${employeesAktif.length} Pegawai`;
         }
 
         // Menampilkan Layar Kasubag Kepegawaian (Tampilan detail nilai & pembagi dinamis)
@@ -2667,14 +2683,22 @@
             container.innerHTML = "";
 
             employees.forEach(emp => {
+                const isAktif = emp.aktif !== false;
                 const cardHtml = `
-                    <div class="bg-white p-4 rounded-3xl shadow-xs border border-slate-100 flex justify-between items-center">
+                    <div class="bg-white p-4 rounded-3xl shadow-xs border ${isAktif ? 'border-slate-100' : 'border-slate-200 opacity-60'} flex justify-between items-center">
                         <div class="max-w-[70%]">
-                            <h4 class="font-bold text-slate-800 text-sm leading-tight">${escapeHtml(emp.name)}</h4>
+                            <div class="flex items-center gap-1.5 flex-wrap">
+                                <h4 class="font-bold text-slate-800 text-sm leading-tight">${escapeHtml(emp.name)}</h4>
+                                ${!isAktif ? `<span class="text-[8px] font-black bg-slate-200 text-slate-500 px-2 py-0.5 rounded-full uppercase tracking-wider">Non-Aktif</span>` : ''}
+                            </div>
                             <p class="text-[9px] text-slate-400 font-bold mt-1 uppercase tracking-wider">${escapeHtml(emp.jabatan)}</p>
                             <p class="text-[9px] text-indigo-500 font-mono font-bold">NIP: ${escapeHtml(emp.nip)}</p>
                             <p class="text-[9px] text-emerald-600 font-mono font-bold mt-0.5">TKD: ${formatRupiah(emp.besaranTKD)} &bull; PPh 21: ${emp.pph21 || 0}%</p>
                             <p class="text-[9px] text-slate-400 font-mono font-bold mt-0.5">PIN Login: ${emp.pin || '123456'}</p>
+                            <label class="flex items-center gap-1.5 mt-1.5 cursor-pointer w-fit">
+                                <input type="checkbox" onchange="toggleEmployeeAktif(${emp.id})" ${isAktif ? 'checked' : ''} class="w-3.5 h-3.5 rounded accent-indigo-600">
+                                <span class="text-[9px] font-bold text-slate-500">Aktif (tampil di daftar penilaian Camat)</span>
+                            </label>
                         </div>
                         <div class="flex space-x-1.5">
                             <button onclick="editEmployee(${emp.id})" class="w-8 h-8 bg-slate-50 text-slate-500 hover:bg-slate-100 rounded-lg flex items-center justify-center text-xs transition-all">
@@ -2832,10 +2856,15 @@
             }
 
             if (id) {
-                employees = employees.map(e => e.id === parseInt(id) ? { id: parseInt(id), name, nip, gol, jabatan, type, besaranTKD, pph21, pin } : e);
+                // Perbaikan: pertahankan status `aktif` yang sudah ada — sebelumnya form ini
+                // membangun objek baru tanpa field `aktif`, sehingga status Non-Aktif bisa
+                // ter-reset kembali jadi Aktif tanpa sengaja setiap kali data pegawai diedit.
+                const existing = employees.find(e => e.id === parseInt(id));
+                const aktifSaatIni = existing ? existing.aktif : true;
+                employees = employees.map(e => e.id === parseInt(id) ? { id: parseInt(id), name, nip, gol, jabatan, type, besaranTKD, pph21, pin, aktif: aktifSaatIni } : e);
             } else {
                 const newId = Date.now();
-                employees.push({ id: newId, name, nip, gol, jabatan, type, besaranTKD, pph21, pin });
+                employees.push({ id: newId, name, nip, gol, jabatan, type, besaranTKD, pph21, pin, aktif: true });
             }
 
             localStorage.setItem('tutuyan_pwa_employees', JSON.stringify(employees));
@@ -2846,6 +2875,25 @@
 
             closeEmployeeModal();
             if (!isOnline) renderAdminView();
+        }
+
+        // Fitur "Tandai Non-Aktif": mengubah status aktif seorang pegawai. Pegawai non-aktif
+        // disembunyikan dari daftar penilaian Camat & daftar login Pegawai, tapi riwayat data
+        // lamanya (nilai, TKD, ketidakhadiran) tetap utuh dan bisa dilihat di Kasubag/Admin/Riwayat.
+        function toggleEmployeeAktif(id) {
+            const emp = employees.find(e => e.id === id);
+            if (!emp) return;
+
+            const statusBaru = !(emp.aktif !== false);
+            employees = employees.map(e => e.id === id ? { ...e, aktif: statusBaru } : e);
+
+            localStorage.setItem('tutuyan_pwa_employees', JSON.stringify(employees));
+
+            if (isOnline) {
+                database.ref('employees').set(employees);
+            } else {
+                renderAdminView();
+            }
         }
 
         function deleteEmployee(id) {
