@@ -1319,6 +1319,10 @@
                         <div>
                             <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Alasan</label>
                             <textarea id="ketidakhadiranAlasan" oninput="updateKetidakhadiranPreview()" rows="2" placeholder="Contoh: Sakit demam tinggi" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm font-semibold outline-none focus:ring-2 focus:ring-indigo-500 resize-none"></textarea>
+                            <label class="flex items-start gap-2 mt-2 cursor-pointer">
+                                <input type="checkbox" id="sertakanAlasanWA" class="w-3.5 h-3.5 rounded accent-indigo-600 mt-0.5">
+                                <span class="text-[10px] font-semibold text-slate-500 leading-relaxed">Sertakan alasan ini dalam notifikasi WhatsApp ke Camat (kalau tidak dicentang, Camat hanya menerima pemberitahuan tanggal tanpa alasan)</span>
+                            </label>
                         </div>
                         <div class="grid grid-cols-2 gap-2">
                             <div>
@@ -1634,14 +1638,17 @@
             }
 
             // Notifikasi WA real-time ke grup WhatsApp kantor (memakai infrastruktur Fonnte yang sudah ada).
-            // Catatan: alasan ketidakhadiran SENGAJA tidak disertakan di pesan WA demi privasi pegawai —
-            // pesan dibuat generik (permohonan izin), rincian alasan hanya terlihat di dalam aplikasi.
-            const pesanWA = `Yth. Ibu Camat, saya *${emp.name}* (${emp.jabatan}) memohon izin untuk belum masuk kantor dari tanggal *${formatTanggalIndo(tglMulai)}* hingga tanggal *${formatTanggalIndo(tglSelesai)}* (${jumlahHariBaru} hari).`;
+            // Pegawai sekarang bisa MEMILIH sendiri apakah alasan ketidakhadirannya ikut
+            // disebutkan di pesan WA atau tidak, lewat checkbox "Sertakan alasan..." di form.
+            // Kalau disertakan, alasan disambung dalam satu kalimat memakai kata "karena".
+            const sertakanAlasan = document.getElementById('sertakanAlasanWA').checked;
+            const pesanWA = `Yth. Ibu Camat, saya *${emp.name}* (${emp.jabatan}) memohon izin untuk belum masuk kantor dari tanggal *${formatTanggalIndo(tglMulai)}* hingga tanggal *${formatTanggalIndo(tglSelesai)}* (${jumlahHariBaru} hari)${sertakanAlasan ? ` karena *${alasan}*` : ''}.`;
             sendWhatsAppNotification(pesanWA, 'ketidakhadiran');
 
             alert("Pemberitahuan ketidakhadiran berhasil dikirim.");
 
             document.getElementById('ketidakhadiranAlasan').value = '';
+            document.getElementById('sertakanAlasanWA').checked = false;
             document.getElementById('ketidakhadiranTglMulai').value = '';
             document.getElementById('ketidakhadiranTglSelesai').value = '';
             document.getElementById('ketidakhadiranPreview').innerHTML = '';
