@@ -224,9 +224,9 @@
                     <h4 class="font-black text-slate-800 text-xs uppercase tracking-wider flex items-center gap-1.5 text-amber-600">
                         <i class="fa-solid fa-calendar-xmark text-[10px]"></i> Notifikasi Ketidakhadiran
                     </h4>
-                    <p class="text-[9px] text-slate-400 font-semibold -mt-2 leading-relaxed">Terkirim ke nomor/grup di bawah ini saat pegawai mengajukan pemberitahuan ketidakhadiran (biasanya grup WhatsApp kantor). Bisa diisi nomor pribadi (08xx/62xx) atau ID Grup WhatsApp.</p>
+                    <p class="text-[9px] text-slate-400 font-semibold -mt-2 leading-relaxed">Terkirim ke nomor/grup di bawah ini saat pegawai mengajukan pemberitahuan ketidakhadiran (biasanya grup WhatsApp kantor). Bisa diisi nomor pribadi (08xx/62xx) atau ID Grup WhatsApp asli dari Fonnte (selalu diakhiri "@g.us", contoh: 120363012345678901@g.us).</p>
                     <div class="flex gap-2">
-                        <input type="text" id="newWaNumberKetidakhadiran" placeholder="Nomor 08xx atau ID Grup WA" class="flex-1 min-w-0 bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm font-semibold outline-none focus:ring-2 focus:ring-indigo-500">
+                        <input type="text" id="newWaNumberKetidakhadiran" placeholder="08xx, 62xx, atau xxx@g.us" class="flex-1 min-w-0 bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm font-semibold outline-none focus:ring-2 focus:ring-indigo-500">
                         <button onclick="addWaNumber('ketidakhadiran')" class="w-11 h-11 flex-shrink-0 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl flex items-center justify-center active:scale-95 transition-transform">
                             <i class="fa-solid fa-plus"></i>
                         </button>
@@ -2605,34 +2605,48 @@
         function addWaNumber(kategori) {
             const inputId = kategori === 'ketidakhadiran' ? 'newWaNumberKetidakhadiran' : 'newWaNumberPenilaian';
             const input = document.getElementById(inputId);
-            let num = input.value.trim().replace(/[\s\-()]/g, ''); // buang spasi/strip/kurung
+            const raw = input.value.trim();
+
+            // Perbaikan: ID Grup WhatsApp ASLI dari Fonnte selalu diakhiri "@g.us", dan bisa
+            // memuat tanda strip yang BERMAKNA sebagai bagian dari ID (mis. format lama
+            // "6282290661027-1509091598@g.us"). Implementasi sebelumnya SALAH karena
+            // (1) mengira ID grup cuma angka polos tanpa akhiran apa pun, dan
+            // (2) ikut menghapus tanda strip di dalamnya sebelum validasi — sehingga ID
+            // grup yang benar justru selalu gagal tersimpan. Sekarang dideteksi lebih dulu
+            // SEBELUM tanda strip/spasi dibuang, supaya formatnya tidak rusak.
+            const isGroupIdFormat = /^\d{8,25}(-\d{5,25})?@g\.us$/i.test(raw);
+
+            if (kategori === 'ketidakhadiran' && isGroupIdFormat) {
+                simpanWaNumberBaru(kategori, raw.toLowerCase(), input);
+                return;
+            }
+
+            let num = raw.replace(/[\s\-()]/g, ''); // buang spasi/strip/kurung (khusus nomor HP biasa)
 
             const validLokal = /^0[0-9]{8,14}$/.test(num);
             const validInternasional = /^62[0-9]{8,14}$/.test(num);
-            // Perbaikan #6: ID Grup WhatsApp asli biasanya berupa angka PANJANG (16-25 digit).
-            // Sebelumnya batas bawahnya cuma 5 digit, sehingga nomor pribadi yang salah ketik
-            // (mis. lupa awalan 0/62, jadi 9-15 digit) bisa lolos begitu saja dianggap "ID Grup"
-            // tanpa peringatan apa pun. Sekarang dipisah jadi 2 pengecekan agar typo terdeteksi.
             const miripNomorHpSalahKetik = /^\d{9,15}$/.test(num);
-            const validGroupId = /^\d{16,25}$/.test(num);
 
             if (validLokal) {
                 num = '62' + num.substring(1);
             } else if (validInternasional) {
                 // sudah dalam format 62xxxx, biarkan apa adanya
-            } else if (kategori === 'ketidakhadiran' && validGroupId) {
-                // dianggap ID Grup WhatsApp (angka panjang, bukan pola nomor HP), biarkan apa adanya
             } else if (kategori === 'ketidakhadiran' && miripNomorHpSalahKetik) {
-                alert("Nomor ini terlihat seperti nomor HP tapi formatnya tidak lengkap. Pastikan diawali 08 (nomor lokal) atau 62 (format internasional). Kalau maksudnya ID Grup WhatsApp, ID grup biasanya berupa angka yang jauh lebih panjang (16 digit atau lebih).");
+                alert("Nomor ini terlihat seperti nomor HP tapi formatnya tidak lengkap. Pastikan diawali 08 (nomor lokal) atau 62 (format internasional). Kalau maksudnya ID Grup WhatsApp, ID grup asli dari Fonnte selalu diakhiri \"@g.us\".");
                 return;
             } else {
                 const pesanFormat = kategori === 'ketidakhadiran'
-                    ? "Format tidak valid. Gunakan nomor 08xxxxxxxxxx / 62xxxxxxxxxx, atau ID Grup WhatsApp (angka panjang, 16 digit atau lebih)."
+                    ? "Format tidak valid. Gunakan nomor 08xxxxxxxxxx / 62xxxxxxxxxx, atau ID Grup WhatsApp asli dari Fonnte (contoh: 120363012345678901@g.us)."
                     : "Format nomor tidak valid. Gunakan format 08xxxxxxxxxx atau 62xxxxxxxxxx (hanya angka).";
                 alert(pesanFormat);
                 return;
             }
 
+            simpanWaNumberBaru(kategori, num, input);
+        }
+
+        // Menyimpan nomor/ID grup baru ke kategori yang sesuai (dipakai bersama oleh addWaNumber)
+        function simpanWaNumberBaru(kategori, num, input) {
             if (!config.wa) config.wa = { token: "", numbersPenilaian: [], numbersKetidakhadiran: [] };
             const key = kategori === 'ketidakhadiran' ? 'numbersKetidakhadiran' : 'numbersPenilaian';
             if (!Array.isArray(config.wa[key])) config.wa[key] = [];
